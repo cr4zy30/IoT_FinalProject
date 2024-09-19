@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            text-align: center;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+
+        #switch_on {
+            display: none;
+        }
+
+        #led_on {
+            display:none;
+        }
+    </style>
+    <script>
+
+    // $(document).ready(function() { 
+
+        let led_state = false;
+        
+        function switchLed() {
+            led_state = !led_state;
+            
+            fetch("/switch_led", {
+                method: "GET"
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                document.getElementById('status').innerText = `LED is now ${data.led_state}`;
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                document.getElementById('status').innerText = 'Error switching LED state.';
+            });
+
+            switchImages();
+        }
+
+        function switchImages() {
+            if(led_state) {
+                $("#switch_on").show();
+                $("#switch_off").hide();
+
+                $("#led_on").show();
+                $("#led_off").hide();
+            } else {
+                $("#switch_on").hide();
+                $("#switch_off").show();
+
+                $("#led_on").hide();
+                $("#led_off").show();
+            }
+            
+        }
+    // });
+    </script>
+</head>
+<body>
+    <button onclick="switchLed()">Switch LED State</button>
+    <h1>IoT Control Dashboard</h1>
+    <div id="status">Fetching LED state...</div>
+    <div onclick="switchLed()"> 
+        <img id="switch_off" src="../static/images/switch_False.png" alt="Switch OFF"/>
+        <img id="switch_on" src="../static/images/switch_True.png" alt="Switch ON"/>    
+        <img id="led_off" src="../static/images/led_off.png" alt="LED OFF" />
+        <img id="led_on" src="../static/images/led_on.png" alt="LED ON" />
+    </div>
+    
+</body>
+</html>

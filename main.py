@@ -7,15 +7,14 @@ LED=25
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(LED, GPIO.OUT)
-GPIO.output(LED, 0)
-led_state=False
+led_state=GPIO.input(LED) is 1
 
 @app.route("/", methods=["GET"])
 def home():
     return render_template('dashboard.html')
 
 @app.route("/switch_led", methods=["GET"])
-def get_led_state():
+def switch_led_state():
     global led_state
     led_state = not led_state
     GPIO.output(LED, led_state)
@@ -23,6 +22,11 @@ def get_led_state():
         "led_state": led_state
     }
     return jsonify(data), 200
+
+@app.route("/get_led_state", methods=["GET"])
+def get_led_state():
+    global led_state
+    return jsonify({"led_state": led_state}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)

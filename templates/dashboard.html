@@ -93,10 +93,9 @@
             .then(data => {
                 led_state = data.led_state;
                 console.log(data);
+                setImages();
             })
             .catch(e => console.error("Error:", e));
-
-            setImages();
         });
 
         function setImages() {

@@ -66,6 +66,7 @@
 
       <div class="led">
         <button class="btn-email">send email test</button>
+        <button id="btn-motor" class="btn-motor">Start Motor</button>
         <img
           id="switch"
           src="../static/images/switch_false.png"
@@ -108,6 +109,15 @@
       $(".btn-email").click(function () {
         fetch("/send_email", { method: "POST" });
       });
+
+      $("#btn-motor").click(function () {
+      fetch("/start_motor")
+        .then((response) => response.json())
+        .then((data) => {
+          console.log(data.status);
+        })
+        .catch((e) => console.error("Error:", e));
+    });
 
       function setImages() {
         $("#switch").attr("src", `../static/images/switch_${led_state}.png`);

@@ -1,24 +1,33 @@
 from flask import Flask, render_template, jsonify
-# import RPi.GPIO as GPIO
+import threading
+import time
+import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
 import smtplib
 import imaplib
 import email
 import ssl
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
-
 from email.message import EmailMessage
-
-import threading
-import time
 
 app = Flask(__name__)
 
+# Motor and LED Pin setup (if using on Raspberry Pi)
+Motor1 = 22  # Enable Pin for motor
+Motor2 = 27  # Input Pin
+Motor3 = 17  # Input Pin
+
 # LED=25
-# GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BCM)
 # GPIO.setwarnings(False)
 # GPIO.setup(LED, GPIO.OUT)
 # led_state=GPIO.input(LED) is 1
+# Initialize GPIO setup for motor
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(Motor1, GPIO.OUT)
+GPIO.setup(Motor2, GPIO.OUT)
+GPIO.setup(Motor3, GPIO.OUT)
 led_state=False
 
 temp_DHT_11=25 # input comes from dht11
@@ -78,6 +87,12 @@ def send_email():
         print("err")
         # return jsonify({"status": "error"}), 500
 
+# Motor control endpoint
+@app.route("/start_motor", methods=["GET"])
+def start_motor():
+    run_motor()
+    return jsonify({"status": "Motor started and stopped"}), 200
+
 def check_for_reply(sent_time):
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
@@ -126,6 +141,22 @@ def monitor_temp():
             print("Fan turned on!")
         else:
             print("No valid reply received within the time frame.")
+# Function to control the motor
+def run_motor():
+    # First direction
+    GPIO.output(Motor1, GPIO.HIGH)
+    GPIO.output(Motor2, GPIO.LOW)
+    GPIO.output(Motor3, GPIO.HIGH)
+    sleep(5)
+
+    # Second direction
+    GPIO.output(Motor1, GPIO.HIGH)
+    GPIO.output(Motor2, GPIO.HIGH)
+    GPIO.output(Motor3, GPIO.LOW)
+    sleep(5)
+
+    # Stop the motor
+    GPIO.output(Motor1, GPIO.LOW)
 
 
 def initiate_temp_thread():

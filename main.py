@@ -28,15 +28,17 @@ GPIO.setwarnings(False)
 GPIO.setup(Motor1, GPIO.OUT)
 GPIO.setup(Motor2, GPIO.OUT)
 GPIO.setup(Motor3, GPIO.OUT)
+
 led_state=False
+motor_status=False
 
-temp_DHT_11=25 # input comes from dht11
-temp_threshold=24
+temp=25 # input comes from dht11
+threshold=24
 
-sender_email = "vorden2005@gmail.com"  
+sender_email = ""  
 receiver_email = sender_email
-email_password = "acpk ifjp clju ogbx"
-email_subject = "Temperature is getting high... Should we turn on the fan?";
+email_password = ""
+email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 @app.route("/", methods=["GET"])
 def home():
@@ -91,7 +93,7 @@ def send_email():
 @app.route("/start_motor", methods=["GET"])
 def start_motor():
     run_motor()
-    return jsonify({"status": "Motor started and stopped"}), 200
+    return jsonify({"status": motor_status}), 200
 
 
 def check_for_reply(sent_time):
@@ -130,9 +132,10 @@ def check_for_reply(sent_time):
         print(f'Error: {e}')
 
 def monitor_temp():
-    while temp_DHT_11 > temp_threshold:
+    while temp > threshold:
 
-        # maybe wait 5 seconds and check temp again to avoid 1 sec temp spikes
+        # add 5 sec stop to avoid tmp spikes
+
         sent_time = datetime.now()
         send_email()
 
@@ -142,24 +145,27 @@ def monitor_temp():
             print("Fan turned on!")
         else:
             print("No valid reply received within the time frame.")
+
 # Function to control the motor
 @app.route("/stop_motor", methods=["GET"])
 def stop_motor():
+    motor_status=False
     GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
-    return jsonify({"status": "Motor stopped"}), 200
+    return jsonify({"status": motor_status}), 200
 
 def run_motor():
+    motor_status=True
     # First direction
     GPIO.output(Motor1, GPIO.HIGH)
     GPIO.output(Motor2, GPIO.LOW)
     GPIO.output(Motor3, GPIO.HIGH)
-    sleep(5)
+    time.sleep(5)
 
     # Second direction
     GPIO.output(Motor1, GPIO.HIGH)
     GPIO.output(Motor2, GPIO.HIGH)
     GPIO.output(Motor3, GPIO.LOW)
-    sleep(5)
+    time.sleep(5)
 
     # Stop the motor
     GPIO.output(Motor1, GPIO.LOW)

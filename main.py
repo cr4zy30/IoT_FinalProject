@@ -1,33 +1,44 @@
 from flask import Flask, render_template, jsonify
-# import RPi.GPIO as GPIO
+import threading
+import time
+import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
 import smtplib
 import imaplib
 import email
 import ssl
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
-
 from email.message import EmailMessage
-
-import threading
-import time
 
 app = Flask(__name__)
 
+# Motor and LED Pin setup (if using on Raspberry Pi)
+Motor1 = 22  # Enable Pin for motor
+Motor2 = 27  # Input Pin
+Motor3 = 17  # Input Pin
+
 # LED=25
-# GPIO.setmode(GPIO.BCM)
+GPIO.setmode(GPIO.BCM)
 # GPIO.setwarnings(False)
 # GPIO.setup(LED, GPIO.OUT)
 # led_state=GPIO.input(LED) is 1
-led_state=False
+# Initialize GPIO setup for motor
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(Motor1, GPIO.OUT)
+GPIO.setup(Motor2, GPIO.OUT)
+GPIO.setup(Motor3, GPIO.OUT)
 
-temp_DHT_11=25 # input comes from dht11
-temp_threshold=24
+led_state=False
+motor_status=False
+
+temp=25 # input comes from dht11
+threshold=24
 
 sender_email = "vorden2005@gmail.com"  
 receiver_email = sender_email
-email_password = "acpk ifjp clju ogbx"
-email_subject = "Temperature is getting high... Should we turn on the fan?";
+email_password = ""
+email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 @app.route("/", methods=["GET"])
 def home():
@@ -78,6 +89,13 @@ def send_email():
         print("err")
         # return jsonify({"status": "error"}), 500
 
+# Motor control endpoint
+@app.route("/start_motor", methods=["GET"])
+def start_motor():
+    run_motor()
+    return jsonify({"status": motor_status}), 200
+
+
 def check_for_reply(sent_time):
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
@@ -88,7 +106,10 @@ def check_for_reply(sent_time):
         status, data = mail.search(None, search_criteria)
         email_ids = data[0].split()
         
+        first_response = {}
+        i=0
         for e_id in email_ids:
+            i += 1
             status, msg_data = mail.fetch(e_id, '(RFC822)')
             msg = email.message_from_bytes(msg_data[0][1])
             subject = msg['subject']
@@ -103,20 +124,36 @@ def check_for_reply(sent_time):
 
                 print('Body (plain text):')
                 print(body)
-                if email_body.strip().upper() == 'YES' and sent_time <= email_date <= (sent_time + timedelta(minutes=1)):
-                    return True
+                # email_body.strip().upper() == 'YES' and 
+                if sent_time <= email_date <= (sent_time + timedelta(minutes=1)):
+                    turn_on_motor = email_body.strip().upper() == 'YES'
+                    if(i == 1) {
+                        first_response = {
+                            "turn_on_motor": turn_on_motor,
+                            "answered_at": email_date
+                        }
+                    } else {
+                        if(email_date < first_response["answered_at"]) {
+                            first_response = {
+                                "turn_on_motor": turn_on_motor,
+                                "answered_at": email_date
+                                }
+                        }
+                    }
             
             print('---')
+            print(first_response)
         
         mail.logout()
-        return False
+        return first_response["turn_on_motor"]
     except Exception as e:
         print(f'Error: {e}')
 
 def monitor_temp():
-    while temp_DHT_11 > temp_threshold:
+    while temp > threshold:
 
-        # maybe wait 5 seconds and check temp again to avoid 1 sec temp spikes
+        # add 5 sec stop to avoid tmp spikes
+
         sent_time = datetime.now()
         send_email()
 
@@ -126,6 +163,30 @@ def monitor_temp():
             print("Fan turned on!")
         else:
             print("No valid reply received within the time frame.")
+
+# Function to control the motor
+@app.route("/stop_motor", methods=["GET"])
+def stop_motor():
+    motor_status=False
+    GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
+    return jsonify({"status": motor_status}), 200
+
+def run_motor():
+    motor_status=True
+    # First direction
+    GPIO.output(Motor1, GPIO.HIGH)
+    GPIO.output(Motor2, GPIO.LOW)
+    GPIO.output(Motor3, GPIO.HIGH)
+    time.sleep(5)
+
+    # Second direction
+    GPIO.output(Motor1, GPIO.HIGH)
+    GPIO.output(Motor2, GPIO.HIGH)
+    GPIO.output(Motor3, GPIO.LOW)
+    time.sleep(5)
+
+    # Stop the motor
+    GPIO.output(Motor1, GPIO.LOW)
 
 
 def initiate_temp_thread():

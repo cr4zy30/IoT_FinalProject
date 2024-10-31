@@ -150,7 +150,7 @@ def check_for_reply(sent_time):
         print(f'Error: {e}')
 
 def monitor_temp():
-    while temp > threshold:
+    while temp > threshold and not motor_status:
 
         # add 5 sec stop to avoid tmp spikes
 

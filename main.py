@@ -92,6 +92,8 @@ def send_email():
 def start_motor():
     run_motor()
     return jsonify({"status": "Motor started and stopped"}), 200
+@app.route("/stop_motor", methods=["GET"])
+
 
 def check_for_reply(sent_time):
     try:
@@ -158,6 +160,9 @@ def run_motor():
     # Stop the motor
     GPIO.output(Motor1, GPIO.LOW)
 
+def stop_motor():
+    GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
+    return jsonify({"status": "Motor stopped"}), 200
 
 def initiate_temp_thread():
     thread = threading.Thread(target=monitor_temp)

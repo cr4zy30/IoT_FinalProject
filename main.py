@@ -152,6 +152,12 @@ def stop_motor():
     motor_status=False
     GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
     return jsonify({"status": motor_status}), 200
+    
+@app.route("/get_motor_status", methods=["GET"])
+def get_motor_status():
+    global motor_status
+    return jsonify({"motor_status": motor_status}), 200
+
 
 def run_motor():
     motor_status=True

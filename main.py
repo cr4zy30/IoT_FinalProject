@@ -160,26 +160,28 @@ def monitor_temp():
 # Function to control the motor
 @app.route("/stop_motor", methods=["GET"])
 def stop_motor():
+    global motor_status
     motor_status=False
     GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
     return jsonify({"status": motor_status}), 200
 
 def run_motor():
+    global motor_status
     motor_status=True
     # First direction
     GPIO.output(Motor1, GPIO.HIGH)
     GPIO.output(Motor2, GPIO.LOW)
     GPIO.output(Motor3, GPIO.HIGH)
-    time.sleep(5)
+    # time.sleep(5)
 
-    # Second direction
-    GPIO.output(Motor1, GPIO.HIGH)
-    GPIO.output(Motor2, GPIO.HIGH)
-    GPIO.output(Motor3, GPIO.LOW)
-    time.sleep(5)
+    # # Second direction
+    # GPIO.output(Motor1, GPIO.HIGH)
+    # GPIO.output(Motor2, GPIO.HIGH)
+    # GPIO.output(Motor3, GPIO.LOW)
+    # time.sleep(5)
 
-    # Stop the motor
-    GPIO.output(Motor1, GPIO.LOW)
+    # # Stop the motor
+    # GPIO.output(Motor1, GPIO.LOW)
     
 @app.route("/get_motor_state", methods=["GET"])
 def get_motor_state():

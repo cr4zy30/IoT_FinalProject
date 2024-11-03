@@ -494,6 +494,7 @@
       let led_state;
       let motor_state;
       getFanState();  // Call the function to set the initial fan opacit
+      setInterval(getFanState, 3000);
 
     function getFanState() {
         fetch("/get_motor_state")

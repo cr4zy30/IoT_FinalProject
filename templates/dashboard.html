@@ -16,7 +16,7 @@
       }
       .dashboard {
         display: grid;
-        grid-template-columns: 1f 2fr 1fr;
+        grid-template-columns: 1fr 2fr 1fr;
         grid-template-rows: auto;
         gap: 10px;
         padding: 20px;
@@ -35,20 +35,18 @@
         border: 1px solid black;
       }
       .profile {
-        grid-column: 1 /2;
+        grid-column: 1 / 2;
         grid-row: 1 / 3;
         background-color: grey;
       }
       .sensors {
         border: 1px solid black;
-        /* width: 200px; */
         grid-column: 2 / 3;
         grid-row: 1 / 3;
       }
-
       .mobile {
         grid-column: 3 / 4;
-        grid-row: 2/3;
+        grid-row: 2 / 3;
         border: 1px solid black;
       }
     </style>
@@ -59,80 +57,96 @@
       <div class="profile">
         <h1>Profile</h1>
       </div>
-
       <div class="sensors"></div>
-
       <div class="mobile"></div>
-
       <div class="led">
-        <button class="btn-email">send email test</button>
+        <button class="btn-email">Send Email Test</button>
         <button id="btn-motor" class="btn-motor">Start Motor</button>
         <button id="btn-stop-motor" class="btn-stop-motor">Stop Motor</button>
-
-        <img
-          id="switch"
-          src="../static/images/switch_false.png"
-          height="150"
-          alt="Switch"
-        />
-        <img
-          id="light"
-          src="../static/images/light_false.png"
-          height="150"
-          alt="Light bulb"
-        />
+        <span>Fan Status: </span>
+        <span id="fan-status"></span>
+        <img id="switch" src="../static/images/switch_false.png" height="150" alt="Switch" />
+        <img id="light" src="../static/images/light_false.png" height="150" alt="Light bulb" />
       </div>
     </div>
+    <script>
+      $(document).ready(function () {
+        let led_state;
+        let motor_status;
+
+        fetchStatus();
+        setInterval(fetchMotorStatus, 5000);
+
+        function fetchStatus() {
+          fetch("/get_led_state")
+            .then((response) => response.json())
+            .then((data) => {
+              led_state = data.led_state;
+              setImages();
+            })
+            .catch((e) => console.log("Error fetching LED state:", e));
+          fetchMotorStatus();
+        }
+
+        function fetchMotorStatus() {
+          fetch("/get_motor_status")
+            .then((response) => response.json())
+            .then((data) => {
+              motor_status = data.motor_status;
+              updateMotorStatus();
+            })
+            .catch((e) => console.log("Error fetching Motor status:", e));
+        }
+
+        $("#btn-motor").click(function () {
+          fetch("/start_motor")
+            .then((response) => response.json())
+            .then((data) => {
+              motor_status = data.status;
+              updateMotorStatus();
+            })
+            .catch((e) => console.error("Error starting motor:", e));
+        });
+
+        $("#btn-stop-motor").click(function () {
+          fetch("/stop_motor")
+            .then((response) => response.json())
+            .then((data) => {
+              motor_status = data.status;
+              updateMotorStatus();
+            })
+            .catch((e) => console.error("Error stopping motor:", e));
+        });
+
+        $("#switch").click(function () {
+          fetch("/switch_led")
+            .then((response) => response.json())
+            .then((data) => {
+              led_state = data.led_state;
+              setImages();
+            })
+            .catch((e) => console.error("Error:", e));
+        });
+
+        function setImages() {
+          $("#switch").attr("src", `../static/images/switch_${led_state}.png`);
+          $("#light").attr("src", `../static/images/light_${led_state}.png`);
+        }
+
+        function updateMotorStatus() {
+          if (motor_status) {
+            $("#btn-motor").prop("disabled", true);
+            $("#btn-stop-motor").prop("disabled", false);
+            $("#btn-motor").css("background-color", "green");
+            $("#btn-stop-motor").css("background-color", "red");
+          } else {
+            $("#btn-motor").prop("disabled", false);
+            $("#btn-stop-motor").prop("disabled", true);
+            $("#btn-motor").css("background-color", "red");
+            $("#btn-stop-motor").css("background-color", "gray");
+          }
+        }
+      });
+    </script>
   </body>
-
-  <script>
-    $(document).ready(function () {
-      let led_state;
-
-      fetch("/get_led_state")
-        .then((response) => response.json())
-        .then((data) => {
-          led_state = data.led_state;
-          setImages();
-        })
-        .catch((e) => console.log("Error", e));
-
-      $("#switch").click(function () {
-        fetch("/switch_led")
-          .then((response) => response.json())
-          .then((data) => {
-            led_state = data.led_state;
-            console.log(data);
-            setImages();
-          })
-          .catch((e) => console.error("Error:", e));
-      });
-
-      $(".btn-email").click(function () {
-        fetch("/send_email", { method: "POST" });
-      });
-
-      $("#btn-motor").click(function () {
-      fetch("/start_motor")
-        .then((response) => response.json())
-        .then((data) => {
-          console.log(data.status);
-        })
-        .catch((e) => console.error("Error:", e));
-    });
-    $("#btn-stop-motor").click(function () {
-    fetch("/stop_motor")
-      .then((response) => response.json())
-      .then((data) => {
-        console.log(data.status);
-      })
-      .catch((e) => console.error("Error:", e));
-});
-
-      function setImages() {
-        $("#switch").attr("src", `../static/images/switch_${led_state}.png`);
-        $("#light").attr("src", `../static/images/light_${led_state}.png`);
-      }
-    });
-  </script>
 </html>

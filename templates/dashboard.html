@@ -49,9 +49,15 @@
 
       .mobile {
         grid-column: 3 / 4;
-        grid-row: 2/3;
+        grid-row: 2 / 3;
         border: 1px solid black;
+        
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        /* Optional: add height/width if needed */
       }
+
 
       @import url("https://fonts.googleapis.com/css?family=Jaldi&display=swap");
 
@@ -455,7 +461,16 @@
         </div>
       </div>
 
-      <div class="mobile"></div>
+      <div class="mobile">
+        <div class="motor">
+          <img
+            id="fan"
+            src="../static/images/fan.png"
+            height="150"
+            alt="Fan"
+          />
+        </div>
+      </div>
 
       <div class="led">
         <img
@@ -469,14 +484,6 @@
           src="../static/images/light_false.png"
           height="150"
           alt="Light bulb"
-        />
-      </div>
-      <div class="motor">
-        <img
-          id="fan"
-          src="../static/images/fan.png"
-          height="150"
-          alt="Fan"
         />
       </div>
     </div>

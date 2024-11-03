@@ -8,6 +8,7 @@
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='thermometer.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='humidity.css') }}">
     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='fan.css') }}">
   </head>
   <body>
     <h1>IoT Control Dashboard</h1>
@@ -36,6 +37,15 @@
               <div class="gauge-copy"></div>
             </div>
           </div>
+        </div>
+
+        <div class="motor">
+          <img
+            id="fan"
+            src="../static/images/fan.png"
+            height="150"
+            alt="Fan"
+          />
         </div>
       </div>
 

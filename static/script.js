@@ -1,5 +1,39 @@
 $(document).ready(function () {
     let led_state;
+    let motor_state;
+      getFanState();  // Call the function to set the initial fan opacit
+      setInterval(getFanState, 3000);
+
+    function getFanState() {
+        fetch("/get_motor_state")
+            .then((response) => response.json())
+            .then((data) => {
+              console.log("Motor state FETCHED: ", data.motor_status);
+                motor_state = data.motor_status;
+                console.log("Motor state received:", data);
+                $("#fan").css("opacity", motor_state ? "1" : "0.3");  // Update opacity after motor state is updated
+            })
+            .catch((error) => {
+                console.error("Error fetching motor state:", error);
+            });
+    }
+
+    $("#fan").click(function () {
+        const url = motor_state ? "/stop_motor" : "/start_motor";
+        console.log("URI CALLED: ", url);
+        console.log("BECAUSE motor_stae = ",motor_state );
+        
+        fetch(url)
+            .then((response) => response.json())
+            .then((data) => {
+              console.log("Motor state changed to: ", data.status);
+                motor_state = data.status;
+                $("#fan").css("opacity", motor_state ? "1" : "0.3");  // Update opacity based on new motor state
+            })
+            .catch((error) => {
+                console.error("Error toggling motor state:", error);
+            });
+    })
 
     function setHumidityValue(humidityValue) {
       if (humidityValue === "") {

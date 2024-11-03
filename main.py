@@ -1,7 +1,7 @@
 from flask import Flask, render_template, jsonify
 import threading
 import time
-# import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
+import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
 import smtplib
 import imaplib
 import email
@@ -17,23 +17,23 @@ from Freenove_DHT import DHT
 # -- GLOBAL VARIABLES --
 
 # Motor and LED Pin setup (if using on Raspberry Pi)
-# Motor1 = 22  # Enable Pin for motor
-# Motor2 = 27  # Input Pin
-# Motor3 = 17  # Input Pin
+Motor1 = 22  # Enable Pin for motor
+Motor2 = 27  # Input Pin
+Motor3 = 17  # Input Pin
 
-# LED=25
-# GPIO.setmode(GPIO.BCM)
-# # GPIO.setwarnings(False)
-# # GPIO.setup(LED, GPIO.OUT)
-# # led_state=GPIO.input(LED) is 1
-# # Initialize GPIO setup for motor
-# GPIO.setmode(GPIO.BCM)
-# GPIO.setwarnings(False)
-# GPIO.setup(Motor1, GPIO.OUT)
-# GPIO.setup(Motor2, GPIO.OUT)
-# GPIO.setup(Motor3, GPIO.OUT)
+LED=25
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(LED, GPIO.OUT)
+led_state=GPIO.input(LED) is 1
+# Initialize GPIO setup for motor
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+GPIO.setup(Motor1, GPIO.OUT)
+GPIO.setup(Motor2, GPIO.OUT)
+GPIO.setup(Motor3, GPIO.OUT)
 
-DHTPin = 17
+DHTPin = 16
 
 led_state=False
 motor_status=False
@@ -67,28 +67,36 @@ def get_led_state():
     global led_state
     return jsonify({"led_state": led_state}), 200
 
-# Motor control endpoint
-@app.route("/start_motor", methods=["GET"])
-def start_motor():
-    run_motor()
-    return jsonify({"status": motor_status}), 200
 
 @app.route("/get_temp_humidity", methods=["GET"])
 def get_temp_humidity():
     data = get_sensors_info()
     return jsonify(data), 200
 
+# Motor control endpoint
+@app.route("/start_motor", methods=["GET"])
+def start_motor():
+    run_motor()
+    return jsonify({"status": motor_status}), 200
+
 # Function to control the motor
 @app.route("/stop_motor", methods=["GET"])
 def stop_motor():
+    global motor_status
     motor_status=False
     GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
     return jsonify({"status": motor_status}), 200
+
+@app.route("/get_motor_state", methods=["GET"])
+def get_motor_state():
+    global motor_status
+    return jsonify({"motor_status": motor_status}), 200
 
 # -- HELPER FUNCTIONS --
 
 def get_sensors_info():
     dht = DHT(DHTPin)
+    global temp
 
     for i in range(0,15):            
         chk = dht.readDHT11()  
@@ -96,9 +104,11 @@ def get_sensors_info():
             print("DHT11,OK!")
             break
         time.sleep(0.1)
-        
+    
+    temp = round(dht.getTemperature(), 2)
+
     return {
-        "temperature": round(dht.getTemperature(),2),
+        "temperature": temp,
         "humidity": round(dht.getHumidity(), 2)
     }
 
@@ -179,7 +189,7 @@ def check_for_reply(sent_time):
 
 def monitor_temp():
     while temp > threshold and not motor_status:
-        time.sleep(5) # wait before checking the temperature again...
+        time.sleep(6) # wait before checking the temperature again...
 
         if temp <= threshold: 
             break
@@ -192,16 +202,17 @@ def monitor_temp():
         if check_for_reply(sent_time):
             print("Fan turned on!")
             # LOGIC TOO TURN ON THE MOTOR
-            # run_motor()
+            run_motor()
         else:
             print("No valid reply received within the time frame.")
 
 def run_motor():
+    global motor_status
     motor_status=True
     # First direction
-    # GPIO.output(Motor1, GPIO.HIGH)
-    # GPIO.output(Motor2, GPIO.LOW)
-    # GPIO.output(Motor3, GPIO.HIGH)
+    GPIO.output(Motor1, GPIO.HIGH)
+    GPIO.output(Motor2, GPIO.LOW)
+    GPIO.output(Motor3, GPIO.HIGH)
     # time.sleep(5)
 
     # # Second direction

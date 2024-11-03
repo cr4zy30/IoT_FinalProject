@@ -12,6 +12,10 @@ from email.message import EmailMessage
 
 app = Flask(__name__)
 
+from Freenove_DHT import DHT             
+
+# -- GLOBAL VARIABLES --
+
 # Motor and LED Pin setup (if using on Raspberry Pi)
 Motor1 = 22  # Enable Pin for motor
 Motor2 = 27  # Input Pin
@@ -29,16 +33,20 @@ GPIO.setup(Motor1, GPIO.OUT)
 GPIO.setup(Motor2, GPIO.OUT)
 GPIO.setup(Motor3, GPIO.OUT)
 
+DHTPin = 16
+
 led_state=False
 motor_status=False
 
 temp=25 # input comes from dht11
-threshold=24
+threshold=23
 
 sender_email = ""  
 receiver_email = sender_email
 email_password = ""
 email_subject = "Temperature is getting high... Should we turn on the fan?"
+
+# -- ROUTES -- 
 
 @app.route("/", methods=["GET"])
 def home():
@@ -48,7 +56,7 @@ def home():
 def switch_led_state():
     global led_state
     led_state = not led_state
-    GPIO.output(LED, led_state)
+    # GPIO.output(LED, led_state)
     data = {
         "led_state": led_state
     }
@@ -58,6 +66,51 @@ def switch_led_state():
 def get_led_state():
     global led_state
     return jsonify({"led_state": led_state}), 200
+
+
+@app.route("/get_temp_humidity", methods=["GET"])
+def get_temp_humidity():
+    data = get_sensors_info()
+    return jsonify(data), 200
+
+# Motor control endpoint
+@app.route("/start_motor", methods=["GET"])
+def start_motor():
+    run_motor()
+    return jsonify({"status": motor_status}), 200
+
+# Function to control the motor
+@app.route("/stop_motor", methods=["GET"])
+def stop_motor():
+    global motor_status
+    motor_status=False
+    GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
+    return jsonify({"status": motor_status}), 200
+
+@app.route("/get_motor_state", methods=["GET"])
+def get_motor_state():
+    global motor_status
+    return jsonify({"motor_status": motor_status}), 200
+
+# -- HELPER FUNCTIONS --
+
+def get_sensors_info():
+    dht = DHT(DHTPin)
+    global temp
+
+    for i in range(0,15):            
+        chk = dht.readDHT11()  
+        if (chk == 0):  
+            print("DHT11,OK!")
+            break
+        time.sleep(0.1)
+    
+    temp = round(dht.getTemperature(), 2)
+
+    return {
+        "temperature": temp,
+        "humidity": round(dht.getHumidity(), 2)
+    }
 
 def send_email():
     port = 465
@@ -89,12 +142,6 @@ def send_email():
     except Exception as e:
         print(f"Error sending email: {e}")
         return None
-
-# Motor control endpoint
-@app.route("/start_motor", methods=["GET"])
-def start_motor():
-    run_motor()
-    return jsonify({"status": motor_status}), 200
 
 def check_for_reply(sent_time):
     try:
@@ -128,7 +175,7 @@ def check_for_reply(sent_time):
                 body = msg.get_payload(decode=True).decode()
 
             print("DATE:", email_date)
-            response = body.strip().split()[0].lower();
+            response = body.strip().split()[0].lower()
             print("Response:", response)
 
             return response == 'yes'
@@ -142,7 +189,7 @@ def check_for_reply(sent_time):
 
 def monitor_temp():
     while temp > threshold and not motor_status:
-        time.sleep(5) # wait before checking the temperature again...
+        time.sleep(6) # wait before checking the temperature again...
 
         if temp <= threshold: 
             break
@@ -154,16 +201,10 @@ def monitor_temp():
 
         if check_for_reply(sent_time):
             print("Fan turned on!")
+            # LOGIC TOO TURN ON THE MOTOR
+            run_motor()
         else:
             print("No valid reply received within the time frame.")
-
-# Function to control the motor
-@app.route("/stop_motor", methods=["GET"])
-def stop_motor():
-    global motor_status
-    motor_status=False
-    GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
-    return jsonify({"status": motor_status}), 200
 
 def run_motor():
     global motor_status
@@ -182,14 +223,6 @@ def run_motor():
 
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
-    
-@app.route("/get_motor_state", methods=["GET"])
-def get_motor_state():
-    global motor_status
-    return jsonify({"motor_status": motor_status}), 200
-
-
-
 
 def initiate_temp_thread():
     thread = threading.Thread(target=monitor_temp)
@@ -199,3 +232,4 @@ def initiate_temp_thread():
 if __name__ == "__main__":
     initiate_temp_thread()
     app.run(debug=True, use_reloader=False)
+

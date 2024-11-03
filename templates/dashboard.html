@@ -417,6 +417,11 @@
         width: 0;
         height: 0;
       }
+      #fan {
+        cursor: pointer;
+        opacity: 0.3; /* Initial opacity when motor is off */
+        transition: opacity 0.3s;
+      }
     </style>
   </head>
   <body>
@@ -466,12 +471,59 @@
           alt="Light bulb"
         />
       </div>
+      <div class="motor">
+        <img
+          id="fan"
+          src="../static/images/fan.png"
+          height="150"
+          alt="Fan"
+        />
+      </div>
     </div>
   </body>
 
   <script>
     $(document).ready(function () {
       let led_state;
+      let motor_state;
+
+      setFanOpacity();
+
+      function setFanOpacity() {
+        $("#fan").css("opacity", motor_state ? "1" : "0.3");
+      }
+      function getFanState() {
+        fetch("/get_motor_state")
+          .then((response) => response.json())
+          .then((data) => {
+            motor_state = data.motor_state;
+            console.log("Motor state received:", data);
+          })
+          .catch((error) => {
+            console.error("Error fetching data:", error);
+          });
+      }
+      $("#fan").click(function () {
+        if (motor_state) {
+          fetch("/stop_motor")
+            .then((response) => response.json())
+            .then((data) => {
+            })
+            .catch((error) => {
+              console.error("Error fetching data:", error);
+            });
+        } else {
+          fetch("/start_motor")
+            .then((response) => response.json())
+            .then((data) => {
+            })
+            .catch((error) => {
+              console.error("Error fetching data:", error);
+            });
+        }
+        getFanState();
+        setFanOpacity();
+      });
 
       $(function () {
         $(".text-box").keyup(function () {

@@ -485,6 +485,8 @@
   <script>
     $(document).ready(function () {
       let led_state;
+      let motor_state;
+      getFanState();  // Call the function to set the initial fan opacity
       setFanOpacity();
 
     function setFanOpacity() {

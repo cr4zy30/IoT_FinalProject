@@ -485,45 +485,41 @@
   <script>
     $(document).ready(function () {
       let led_state;
-      let motor_state;
-
       setFanOpacity();
 
-      function setFanOpacity() {
+    function setFanOpacity() {
         $("#fan").css("opacity", motor_state ? "1" : "0.3");
-      }
-      function getFanState() {
+    }
+
+    function getFanState() {
         fetch("/get_motor_state")
-          .then((response) => response.json())
-          .then((data) => {
-            motor_state = data.motor_state;
-            console.log("Motor state received:", data);
-          })
-          .catch((error) => {
-            console.error("Error fetching data:", error);
-          });
-      }
-      $("#fan").click(function () {
-        if (motor_state) {
-          fetch("/stop_motor")
             .then((response) => response.json())
             .then((data) => {
+                motor_state = data.motor_status;
+                console.log("Motor state received:", data);
+                setFanOpacity();  // Update opacity after motor state is updated
             })
             .catch((error) => {
-              console.error("Error fetching data:", error);
+                console.error("Error fetching motor state:", error);
             });
-        } else {
-          fetch("/start_motor")
+    }
+
+    $("#fan").click(function () {
+        const url = motor_state ? "/stop_motor" : "/start_motor";
+        
+        fetch(url)
             .then((response) => response.json())
             .then((data) => {
+                motor_state = data.status;
+                setFanOpacity();  // Update opacity based on new motor state
             })
             .catch((error) => {
-              console.error("Error fetching data:", error);
+                console.error("Error toggling motor state:", error);
             });
-        }
-        getFanState();
-        setFanOpacity();
-      });
+    });
+
+    // Initial state fetch to set the fan opacity on load
+    getFanState();
 
       $(function () {
         $(".text-box").keyup(function () {

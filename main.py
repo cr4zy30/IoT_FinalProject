@@ -39,11 +39,11 @@ led_state=False
 motor_status=False
 
 temp=25 # input comes from dht11
-threshold=23
+threshold=26
 
-sender_email = ""  
+sender_email = "zlatintsvetkov@gmail.com"  
 receiver_email = sender_email
-email_password = ""
+email_password = "akyq bfni ojrq wgbm"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 # -- ROUTES -- 
@@ -188,6 +188,9 @@ def check_for_reply(sent_time):
         print(f'Error: {e}')
 
 def monitor_temp():
+    global motor_status
+    global temp
+    global threshold
     while temp > threshold and not motor_status:
         time.sleep(6) # wait before checking the temperature again...
 

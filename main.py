@@ -1,33 +1,52 @@
 from flask import Flask, render_template, jsonify
-# import RPi.GPIO as GPIO
+import threading
+import time
+# import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
 import smtplib
 import imaplib
 import email
 import ssl
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
-
 from email.message import EmailMessage
-
-import threading
-import time
 
 app = Flask(__name__)
 
+from Freenove_DHT import DHT             
+
+# -- GLOBAL VARIABLES --
+
+# Motor and LED Pin setup (if using on Raspberry Pi)
+# Motor1 = 22  # Enable Pin for motor
+# Motor2 = 27  # Input Pin
+# Motor3 = 17  # Input Pin
+
 # LED=25
 # GPIO.setmode(GPIO.BCM)
+# # GPIO.setwarnings(False)
+# # GPIO.setup(LED, GPIO.OUT)
+# # led_state=GPIO.input(LED) is 1
+# # Initialize GPIO setup for motor
+# GPIO.setmode(GPIO.BCM)
 # GPIO.setwarnings(False)
-# GPIO.setup(LED, GPIO.OUT)
-# led_state=GPIO.input(LED) is 1
+# GPIO.setup(Motor1, GPIO.OUT)
+# GPIO.setup(Motor2, GPIO.OUT)
+# GPIO.setup(Motor3, GPIO.OUT)
+
+DHTPin = 17
+
 led_state=False
+motor_status=False
 
-temp_DHT_11=25 # input comes from dht11
-temp_threshold=24
+temp=25 # input comes from dht11
+threshold=23
 
-sender_email = "vorden2005@gmail.com"  
+sender_email = ""  
 receiver_email = sender_email
-email_password = "acpk ifjp clju ogbx"
-email_subject = "Temperature is getting high... Should we turn on the fan?";
+email_password = ""
+email_subject = "Temperature is getting high... Should we turn on the fan?"
+
+# -- ROUTES -- 
 
 @app.route("/", methods=["GET"])
 def home():
@@ -48,7 +67,41 @@ def get_led_state():
     global led_state
     return jsonify({"led_state": led_state}), 200
 
-@app.route("/send_email", methods=["POST"])
+# Motor control endpoint
+@app.route("/start_motor", methods=["GET"])
+def start_motor():
+    run_motor()
+    return jsonify({"status": motor_status}), 200
+
+@app.route("/get_temp_humidity", methods=["GET"])
+def get_temp_humidity():
+    data = get_sensors_info()
+    return jsonify(data), 200
+
+# Function to control the motor
+@app.route("/stop_motor", methods=["GET"])
+def stop_motor():
+    motor_status=False
+    GPIO.output(Motor1, GPIO.LOW)  # Stops the motor
+    return jsonify({"status": motor_status}), 200
+
+# -- HELPER FUNCTIONS --
+
+def get_sensors_info():
+    dht = DHT(DHTPin)
+
+    for i in range(0,15):            
+        chk = dht.readDHT11()  
+        if (chk == 0):  
+            print("DHT11,OK!")
+            break
+        time.sleep(0.1)
+        
+    return {
+        "temperature": round(dht.getTemperature(),2),
+        "humidity": round(dht.getHumidity(), 2)
+    }
+
 def send_email():
     port = 465
     smtp_server = "smtp.gmail.com"
@@ -61,7 +114,9 @@ def send_email():
     message.set_content("""\
 
     Do you want to turn on the fan? 
-    Answer "YES" or "NO"
+    Reply "YES" or "NO"
+
+    Only the FIRST reply will be considered.
     
     Note: you have 1 minute to answer the message, otherwise your response will be ignored.
 
@@ -73,10 +128,10 @@ def send_email():
         with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
             server.login(sender_email, email_password)
             server.sendmail(sender_email, receiver_email, message.as_string())
-            # return jsonify({"status": "success"}), 200
+            print("Email sent successfully.")
     except Exception as e:
-        print("err")
-        # return jsonify({"status": "error"}), 500
+        print(f"Error sending email: {e}")
+        return None
 
 def check_for_reply(sent_time):
     try:
@@ -84,27 +139,36 @@ def check_for_reply(sent_time):
         mail.login(sender_email, email_password)
         mail.select('inbox')
 
-        search_criteria = f'UNSEEN SUBJECT "{email_subject}"'
+        search_criteria = f'UNSEEN SUBJECT "Re: {email_subject}"'
         status, data = mail.search(None, search_criteria)
         email_ids = data[0].split()
         
+        now = datetime.now()
+        first_reply = {}
+
         for e_id in email_ids:
             status, msg_data = mail.fetch(e_id, '(RFC822)')
             msg = email.message_from_bytes(msg_data[0][1])
             subject = msg['subject']
             from_ = msg['from']
             print(f'Subject: {subject}')
-            print(f'From: {from_}')
-          
-            content_type = msg.get_content_type()
-            if content_type == 'text/plain':
-                body = msg.get_payload(decode=True).decode()
-                email_date = parsedate_to_datetime(msg['Date'])
+            print(f'From: {from_}')          
 
-                print('Body (plain text):')
-                print(body)
-                if email_body.strip().upper() == 'YES' and sent_time <= email_date <= (sent_time + timedelta(minutes=1)):
-                    return True
+            email_date = parsedate_to_datetime(msg['Date'])
+
+            if msg.is_multipart():
+                for part in msg.walk():
+                    if part.get_content_type() == "text/plain":
+                        body = part.get_payload(decode=True).decode(part.get_content_charset(), errors='replace').strip()
+                        break
+            else:
+                body = msg.get_payload(decode=True).decode()
+
+            print("DATE:", email_date)
+            response = body.strip().split()[0].lower()
+            print("Response:", response)
+
+            return response == 'yes'
             
             print('---')
         
@@ -114,9 +178,12 @@ def check_for_reply(sent_time):
         print(f'Error: {e}')
 
 def monitor_temp():
-    while temp_DHT_11 > temp_threshold:
+    while temp > threshold and not motor_status:
+        time.sleep(5) # wait before checking the temperature again...
 
-        # maybe wait 5 seconds and check temp again to avoid 1 sec temp spikes
+        if temp <= threshold: 
+            break
+
         sent_time = datetime.now()
         send_email()
 
@@ -124,16 +191,34 @@ def monitor_temp():
 
         if check_for_reply(sent_time):
             print("Fan turned on!")
+            # LOGIC TOO TURN ON THE MOTOR
+            # run_motor()
         else:
             print("No valid reply received within the time frame.")
 
+def run_motor():
+    motor_status=True
+    # First direction
+    # GPIO.output(Motor1, GPIO.HIGH)
+    # GPIO.output(Motor2, GPIO.LOW)
+    # GPIO.output(Motor3, GPIO.HIGH)
+    # time.sleep(5)
+
+    # # Second direction
+    # GPIO.output(Motor1, GPIO.HIGH)
+    # GPIO.output(Motor2, GPIO.HIGH)
+    # GPIO.output(Motor3, GPIO.LOW)
+    # time.sleep(5)
+
+    # # Stop the motor
+    # GPIO.output(Motor1, GPIO.LOW)
 
 def initiate_temp_thread():
     thread = threading.Thread(target=monitor_temp)
     thread.daemon = True
     thread.start()
-
     
 if __name__ == "__main__":
     initiate_temp_thread()
-    app.run(debug=True)
+    app.run(debug=True, use_reloader=False)
+

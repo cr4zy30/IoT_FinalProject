@@ -5,53 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IoT Dashboard</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        text-align: center;
-        padding: 10px;
-      }
-      h1 {
-        margin-bottom: 20px;
-      }
-      .dashboard {
-        display: grid;
-        grid-template-columns: 1f 2fr 1fr;
-        grid-template-rows: auto;
-        gap: 10px;
-        padding: 20px;
-        margin: auto;
-        height: 750px;
-        width: 1500px;
-        border: 2px solid black;
-      }
-      .led {
-        grid-column: 3 / 4;
-        grid-row: 1 / 2;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 40px;
-        border: 1px solid black;
-      }
-      .profile {
-        grid-column: 1 /2;
-        grid-row: 1 / 3;
-        background-color: grey;
-      }
-      .sensors {
-        border: 1px solid black;
-        /* width: 200px; */
-        grid-column: 2 / 3;
-        grid-row: 1 / 3;
-      }
-
-      .mobile {
-        grid-column: 3 / 4;
-        grid-row: 2/3;
-        border: 1px solid black;
-      }
-    </style>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='thermometer.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='humidity.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='dashboard.css') }}">
   </head>
   <body>
     <h1>IoT Control Dashboard</h1>
@@ -60,12 +16,32 @@
         <h1>Profile</h1>
       </div>
 
-      <div class="sensors"></div>
+      <div class="sensors">
+        <div id="wrapper">
+          <div id="termometer">
+            <div id="temperature" style="height: 0" data-value="0°C"></div>
+            <div id="graduations"></div>
+          </div>
+        </div>
+
+        <div class="hum-container">
+          <div class="container">
+            <div class="guage-holder">
+              <div class="circle-mask">
+                <div class="circle">
+                  <div class="circle-inner"></div>
+                </div>
+              </div>
+              <div class="percentage">0 %</div>
+              <div class="gauge-copy"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div class="mobile"></div>
 
       <div class="led">
-        <button class="btn-email">send email test</button>
         <img
           id="switch"
           src="../static/images/switch_false.png"
@@ -82,37 +58,5 @@
     </div>
   </body>
 
-  <script>
-    $(document).ready(function () {
-      let led_state;
-
-      fetch("/get_led_state")
-        .then((response) => response.json())
-        .then((data) => {
-          led_state = data.led_state;
-          setImages();
-        })
-        .catch((e) => console.log("Error", e));
-
-      $("#switch").click(function () {
-        fetch("/switch_led")
-          .then((response) => response.json())
-          .then((data) => {
-            led_state = data.led_state;
-            console.log(data);
-            setImages();
-          })
-          .catch((e) => console.error("Error:", e));
-      });
-
-      $(".btn-email").click(function () {
-        fetch("/send_email", { method: "POST" });
-      });
-
-      function setImages() {
-        $("#switch").attr("src", `../static/images/switch_${led_state}.png`);
-        $("#light").attr("src", `../static/images/light_${led_state}.png`);
-      }
-    });
-  </script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 </html>

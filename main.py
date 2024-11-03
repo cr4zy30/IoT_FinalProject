@@ -166,7 +166,7 @@ def stop_motor():
 
 def run_motor():
     motor_status=True
-    First direction
+    # First direction
     GPIO.output(Motor1, GPIO.HIGH)
     GPIO.output(Motor2, GPIO.LOW)
     GPIO.output(Motor3, GPIO.HIGH)

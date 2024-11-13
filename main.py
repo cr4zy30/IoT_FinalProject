@@ -38,12 +38,12 @@ DHTPin = 16
 led_state=False
 motor_status=False
 
-temp=25 # input comes from dht11
-threshold=26
+temp=0 # input comes from dht11
+threshold=24
 
 sender_email = "zlatintsvetkov@gmail.com"  
 receiver_email = sender_email
-email_password = "akyq bfni ojrq wgbm"
+email_password = "joyd rluw tpwh ooof"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 # -- ROUTES -- 
@@ -150,7 +150,7 @@ def check_for_reply(sent_time):
         mail.select('inbox')
 
         search_criteria = f'UNSEEN SUBJECT "Re: {email_subject}"'
-        status, data = mail.search(None, search_criteria)
+        status, data = mail.search(None, search_criteria) 
         email_ids = data[0].split()
         
         now = datetime.now()
@@ -187,27 +187,30 @@ def check_for_reply(sent_time):
     except Exception as e:
         print(f'Error: {e}')
 
-def monitor_temp():
-    global motor_status
-    global temp
-    global threshold
-    while temp > threshold and not motor_status:
-        time.sleep(6) # wait before checking the temperature again...
+def monitor_temp():    
+    global temp, threshold, motor_status
 
-        if temp <= threshold: 
-            break
+    while(True):
+        if temp > threshold and not motor_status:
+            
+            print("Waiting 6 seconds...")
+            time.sleep(6) # wait before checking the temperature again...
 
-        sent_time = datetime.now()
-        send_email()
+            if temp <= threshold: 
+                break
 
-        time.sleep(60)
+            sent_time = datetime.now()
+            send_email()
 
-        if check_for_reply(sent_time):
-            print("Fan turned on!")
-            # LOGIC TOO TURN ON THE MOTOR
-            run_motor()
-        else:
-            print("No valid reply received within the time frame.")
+            time.sleep(20)
+
+            if check_for_reply(sent_time):
+                print("Fan turned on!")
+                # LOGIC TOO TURN ON THE MOTOR
+                run_motor()
+            else:
+                print("No valid reply received within the time frame.")
+        time.sleep(1)
 
 def run_motor():
     global motor_status

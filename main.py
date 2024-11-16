@@ -96,6 +96,17 @@ def get_motor_state():
     global motor_status
     return jsonify({"motor_status": motor_status}), 200
 
+@app.route("/get_light_data", methods=["GET"])
+def get_light_data():
+    global light_status
+    # Assume `light_intensity` and `email_sent` are updated elsewhere
+    return jsonify({
+        "light_intensity": light_intensity,
+        "light_status": light_status,
+        "email_sent": light_status  # Simplified example
+    })
+
+
 # -- HELPER FUNCTIONS --
 
 def get_sensors_info():
@@ -234,27 +245,73 @@ def run_motor():
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
 def check_light():
-    global light_status
-    def onMessage(client, userdata, msg):
-        print(msg.topic + ": " + msg.payload.decode())
+    global light_status, led_state
+
+    def on_message(client, userdata, msg):
+        global light_status, led_state
+
+        if msg.topic == "photoresistor/light_intensity":
+            light_intensity = int(msg.payload.decode())
+            print(f"Light Intensity: {light_intensity}%")
+
+        elif msg.topic == "photoresistor/light":
+            light_status = msg.payload.decode() == "True"
+            print(f"Light Status: {light_status}")
+            GPIO.output(LED, GPIO.HIGH if light_status else GPIO.LOW)
+            led_state = light_status
+
+            # Send email if the light turns on
+            if light_status:
+                current_time = datetime.now().strftime("%H:%M")
+                send_email_with_content(f"The Light is ON at {current_time}")
+
     client = paho.Client()
-    client.on_message = onMessage
-    if client.connect("localhost", 1883, 60) != 0:
+    client.on_message = on_message
+
+    if client.connect("192.168.50.194", 1883, 60) != 0:
         print("Could not connect to MQTT Broker!")
         sys.exit(-1)
+
+    client.subscribe("photoresistor/light_intensity")
     client.subscribe("photoresistor/light")
+
     try:
         client.loop_forever()
-    except:
+    except KeyboardInterrupt:
         print("Disconnecting from broker")
     client.disconnect()
+
+def send_email_with_content(content):
+    port = 465
+    smtp_server = "smtp.gmail.com"
+    message = EmailMessage()
+    message["Subject"] = "Light Status Notification"
+    message["From"] = sender_email
+    message["To"] = receiver_email
+    message.set_content(content)
+
+    context = ssl.create_default_context()
+    try:
+        with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+            server.login(sender_email, email_password)
+            server.send_message(message)
+            print("Notification Email Sent.")
+    except Exception as e:
+        print(f"Error sending email: {e}")
+
 
 def initiate_temp_thread():
     thread = threading.Thread(target=monitor_temp)
     thread.daemon = True
     thread.start()
     
+def initiate_light_thread():
+    thread = threading.Thread(target=check_light)
+    thread.daemon = True
+    thread.start()
+    
 if __name__ == "__main__":
     initiate_temp_thread()
+    initiate_light_thread()
     app.run(debug=True, use_reloader=False)
 

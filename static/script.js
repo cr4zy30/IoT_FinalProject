@@ -118,4 +118,27 @@ $(document).ready(function () {
       $("#switch").attr("src", `../static/images/switch_${led_state}.png`);
       $("#light").attr("src", `../static/images/light_${led_state}.png`);
     }
+
+    function updateLightData() {
+      fetch("/get_light_data")
+        .then((response) => response.json())
+        .then((data) => {
+          const lightIntensity = data.light_intensity;
+          const lightStatus = data.light_status;
+    
+          $("#light-fill").css("width", `${lightIntensity}%`);
+          $("#light-value").text(`${lightIntensity}%`);
+          $("#light-status").text(lightStatus ? "ON" : "OFF");
+    
+          if (lightStatus && data.email_sent) {
+            $("#email-notification").show().text("Email has been sent.");
+          } else {
+            $("#email-notification").hide();
+          }
+        })
+        .catch((error) => console.error("Error fetching light data:", error));
+    }
+    
+    setInterval(updateLightData, 3000);
+    
   });

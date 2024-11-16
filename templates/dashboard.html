@@ -65,6 +65,17 @@
           alt="Light bulb"
         />
       </div>
+
+      <div class="light-sensor">
+        <h2>Light Intensity</h2>
+        <div id="light-bar" style="height: 20px; background: #ccc; width: 100%; margin-bottom: 10px;">
+          <div id="light-fill" style="height: 100%; width: 0%; background: #ffa500;"></div>
+        </div>
+        <p>Current Intensity: <span id="light-value">0%</span></p>
+        <p>Status: <span id="light-status">OFF</span></p>
+        <p id="email-notification" style="color: green; display: none;">Email has been sent.</p>
+      </div>
+      
     </div>
   </body>
 

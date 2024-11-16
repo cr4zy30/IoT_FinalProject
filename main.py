@@ -6,6 +6,8 @@ import smtplib
 import imaplib
 import email
 import ssl
+import paho.mqtt.client as paho
+import sys
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from email.message import EmailMessage
@@ -37,6 +39,8 @@ DHTPin = 16
 
 led_state=False
 motor_status=False
+light_status=False
+
 
 temp=0 # input comes from dht11
 threshold=24
@@ -229,6 +233,21 @@ def run_motor():
 
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
+def check_light():
+    global light_status
+    def onMessage(client, userdata, msg):
+        print(msg.topic + ": " + msg.payload.decode())
+    client = paho.Client()
+    client.on_message = onMessage
+    if client.connect("localhost", 1883, 60) != 0:
+        print("Could not connect to MQTT Broker!")
+        sys.exit(-1)
+    client.subscribe("photoresistor/light")
+    try:
+        client.loop_forever()
+    except:
+        print("Disconnecting from broker")
+    client.disconnect()
 
 def initiate_temp_thread():
     thread = threading.Thread(target=monitor_temp)

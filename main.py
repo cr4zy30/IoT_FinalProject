@@ -1,4 +1,5 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask_session import Session
 import threading
 import time
 import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
@@ -14,7 +15,9 @@ from email.utils import parsedate_to_datetime
 from email.message import EmailMessage
 
 app = Flask(__name__)
-
+app.secret_key = 'wompwomp' 
+app.config['SESSION_TYPE'] = 'filesystem'
+Session(app)
 from Freenove_DHT import DHT             
 
 # -- GLOBAL VARIABLES --
@@ -67,9 +70,15 @@ def get_db_connection():
 
 # -- ROUTES -- 
 
+
 @app.route("/", methods=["GET"])
 def home():
-    return render_template('dashboard.html')
+    if "user" not in session:  # Check if the user is logged in
+        return redirect(url_for("login_page"))
+
+    # Fetch user data for the dashboard
+    user = session["user"]
+    return render_template("dashboard.html", user=user)
 
 @app.route("/switch_led", methods=["GET"])
 def switch_led_state():
@@ -161,6 +170,12 @@ def login():
     conn.close()
     
     if user:
+        session["user"] = {
+            "name": user["name"],
+            "email": user["email"],
+            "light_threshold": user["light_threshold"],
+            "temp_threshold": user["temp_threshold"],
+        }
         # Log user login
         conn = get_db_connection()
         conn.execute(
@@ -189,6 +204,7 @@ def login():
 @app.route("/logout", methods=["POST"])
 def logout():
     user_id = request.json.get("user_id")
+    
     conn = get_db_connection()
     conn.execute(
         "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
@@ -196,8 +212,8 @@ def logout():
     )
     conn.commit()
     conn.close()
-    return jsonify({"message": "User logged out"}), 200
-
+    session.pop("user", None)  # Clear session data
+    return redirect(url_for("login_page"))
 
 
 # -- HELPER FUNCTIONS --

@@ -14,7 +14,11 @@
     <h1>IoT Control Dashboard</h1>
     <div class="dashboard">
       <div class="profile">
-        <h1>Profile</h1>
+        <h1>Welcome, {{ user['name'] }}</h1>
+        <p>Email: {{ user['email'] }}</p>
+        <p>Light Threshold: {{ user['light_threshold'] }}</p>
+        <p>Temperature Threshold: {{ user['temp_threshold'] }}</p>
+        <a href="/logout">Logout</a>
       </div>
 
       <div class="sensors">

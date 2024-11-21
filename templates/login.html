@@ -43,6 +43,14 @@
             })
             .catch(error => console.error("Error:", error));
         });
+        document.addEventListener(
+            "keydown", function(event){
+                if(event.key.length === 1){
+                    let rfidInput = document.getElementById("rfid_tag");
+                    rfidInput += event.key;
+                }
+            }
+        );
     </script>
 </body>
 </html>

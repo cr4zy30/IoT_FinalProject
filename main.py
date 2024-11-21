@@ -201,7 +201,7 @@ def login():
         }), 200
     return jsonify({"error": "RFID not recognized"}), 401
 
-@app.route("/logout", methods=["POST"])
+@app.route("/logout", methods=["GET"])
 def logout():
     user_id = request.json.get("user_id")
     

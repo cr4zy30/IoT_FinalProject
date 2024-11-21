@@ -40,6 +40,7 @@ DHTPin = 16
 led_state=False
 motor_status=False
 light_status=False
+light_intensity=0
 
 
 temp=0 # input comes from dht11
@@ -47,7 +48,7 @@ threshold=24
 
 sender_email = "zlatintsvetkov@gmail.com"  
 receiver_email = sender_email
-email_password = "joyd rluw tpwh ooof"
+email_password = "flvz vkjt bpwh ioom"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 # -- ROUTES -- 
@@ -98,7 +99,7 @@ def get_motor_state():
 
 @app.route("/get_light_data", methods=["GET"])
 def get_light_data():
-    global light_status
+    global light_status, light_intensity
     # Assume `light_intensity` and `email_sent` are updated elsewhere
     return jsonify({
         "light_intensity": light_intensity,
@@ -245,10 +246,10 @@ def run_motor():
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
 def check_light():
-    global light_status, led_state
+    global light_status, led_state, light_intensity
 
     def on_message(client, userdata, msg):
-        global light_status, led_state
+        global light_status, led_state, light_intensity
 
         if msg.topic == "photoresistor/light_intensity":
             light_intensity = int(msg.payload.decode())

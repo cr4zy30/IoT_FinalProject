@@ -58,7 +58,7 @@ RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
 
 # --- DATABASE FUNCTIONS ---
-DATABASE = 'iot_system.db'
+DATABASE = 'db_files/iot_system.db'
 
 def get_db_connection():
     conn = sqlite3.connect(DATABASE)

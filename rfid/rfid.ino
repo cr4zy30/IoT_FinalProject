@@ -3,8 +3,8 @@
 #include <SPI.h>
 #include <MFRC522.h>
 
-#define RST_PIN 22
-#define SS_PIN 21
+#define RST_PIN 4
+#define SS_PIN 5
 
 const char *ssid = "Tsvetkovi";
 const char *password = "19650413";

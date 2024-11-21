@@ -18,7 +18,7 @@
         <p>Email: {{ user['email'] }}</p>
         <p>Light Threshold: {{ user['light_threshold'] }}</p>
         <p>Temperature Threshold: {{ user['temp_threshold'] }}</p>
-        <a href="/logout">Logout</a>
+        <button onclick="logout()">Logout</button>
       </div>
 
       <div class="sensors">
@@ -84,32 +84,19 @@
   </body>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
-  <script>
-    document.addEventListener("keydown", function (event) {
-        var rfidTagInput = document.getElementById("rfid_tag");
-        if (event.key === "Enter" && rfidTagInput.value) {
-          var rfidTag = rfidTagInput.value;
-
-          fetch("/scan", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ rfid_tag: rfidTag }),
-          })
-            .then((response) => response.json())
-            .then((data) => {
-              if (data.success) {
-                alert(data.message); // Welcome message
-                window.location.reload(); // Refresh dashboard
-              } else {
-                alert(data.error); // Invalid card error
-              }
-            })
-            .catch((error) => console.error("Error:", error));
-
-          rfidTagInput.value = ""; // Clear input field
-        }
-      });
-  </script>
+  <script>function logout(){fetch("/logout", {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success) {
+        alert(data.message); 
+      } else {
+        alert(data.error); 
+      }
+    })
+    .catch((error) => console.error("Error:", error));}</script>
 </html>

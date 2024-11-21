@@ -55,7 +55,7 @@ receiver_email = sender_email
 email_password = "flvz vkjt bpwh ioom"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
-MQTT_BROKER = "192.168.50.194"
+MQTT_BROKER = "192.168.0.124"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
@@ -421,11 +421,10 @@ def send_email_with_content(content):
 
 # -- PHASE 4 --
 def on_rfid_message(client, userdata, msg):
-    global rfid_tag_detected
     if msg.topic == RFID_TOPIC:
-        rfid_tag_detected = msg.payload.decode()
-        print(f"RFID Tag Detected: {rfid_tag_detected}")
-        process_rfid_scan(rfid_tag_detected)
+        rfid_tag = msg.payload.decode()
+        print(f"RFID Tag Detected: {rfid_tag}")
+        response = process_rfid_scan(rfid_tag)
 
 # Process scanned RFID tags
 def process_rfid_scan(tag):
@@ -436,7 +435,14 @@ def process_rfid_scan(tag):
     conn.close()
 
     if user:
-        # Update the global user object instead of using session
+        # Check if another user is logged in
+        if current_user:
+            # Log out the current user
+            print(f"Logging out {current_user['name']}.")
+            log_user_activity(current_user['id'], "logout")
+            current_user = None  # Clear the global user
+
+        # Log in the new user
         current_user = {
             "id": user["id"],
             "name": user["name"],
@@ -444,13 +450,15 @@ def process_rfid_scan(tag):
             "light_threshold": user["light_threshold"],
             "temp_threshold": user["temp_threshold"],
         }
-        print(f"User {user['name']} recognized and logged in.")
+        print(f"User {current_user['name']} logged in.")
         log_user_activity(user["id"], "login")
-        send_email_with_content(f"User {user['name']} logged in at {datetime.now()}")
-        return user
+        send_email_with_content(
+            f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+        return jsonify({"message": f"Welcome {user['name']}!"}), 200
     else:
         print("Unrecognized RFID tag.")
-        return null
+        return jsonify({"error": "RFID not recognized"}), 401
 
 # Log user activity in the database
 def log_user_activity(user_id, action):
@@ -461,26 +469,22 @@ def log_user_activity(user_id, action):
     )
     conn.commit()
     conn.close()
-
-from flask import copy_current_request_context
-
-def listen_for_rfid():
-    def on_message(client, userdata, msg):
-        rfid_tag_detected = msg.payload.decode()
-        print(f"RFID Tag Detected: {rfid_tag_detected}")
-        handle_rfid(rfid_tag_detected)  # Call handle_rfid in main thread
-
+def start_rfid_listener():
     client = paho.Client()
-    client.on_message = on_message
+    client.on_message = on_rfid_message
 
-    client.connect("192.168.50.194", 1883, 60)
-    client.subscribe("rfid/tag")
+    if client.connect(MQTT_BROKER, MQTT_PORT, 60) != 0:
+        print("Could not connect to MQTT Broker!")
+        sys.exit(-1)
+
+    client.subscribe(RFID_TOPIC)
 
     try:
-        client.loop_forever()  # Blocking call, will keep running until interrupted
+        client.loop_forever()
     except KeyboardInterrupt:
-        print("Disconnected from broker")
+        print("Disconnecting from broker.")
         client.disconnect()
+
 
 def handle_rfid(tag):
     user = process_rfid_scan(tag)
@@ -499,6 +503,5 @@ def handle_rfid(tag):
 if __name__ == "__main__":
     threading.Thread(target=monitor_temp, daemon=True).start()
     threading.Thread(target=check_light, daemon=True).start()
-    threading.Thread(target=listen_for_rfid, daemon=True).start()
     app.run(debug=True, use_reloader=False)
 

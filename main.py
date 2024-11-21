@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session, copy_current_request_context
 from flask_session import Session
 import threading
 import time
@@ -59,6 +59,7 @@ MQTT_BROKER = "192.168.50.194"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
+current_user = None
 
 # --- DATABASE FUNCTIONS ---
 DATABASE = 'db_files/iot_system.db'
@@ -428,17 +429,15 @@ def on_rfid_message(client, userdata, msg):
 
 # Process scanned RFID tags
 def process_rfid_scan(tag):
+    global current_user
+
     conn = get_db_connection()
     user = conn.execute("SELECT * FROM users WHERE rfid_tag = ?", (tag,)).fetchone()
     conn.close()
-    
-    if user:
-        if "user" in session:
-            current_user = session.pop("user", None)
-            print(f"User {current_user['name']} logged out.")
 
-        # Log in the new user
-        session["user"] = {
+    if user:
+        # Update the global user object instead of using session
+        current_user = {
             "id": user["id"],
             "name": user["name"],
             "email": user["email"],
@@ -448,8 +447,10 @@ def process_rfid_scan(tag):
         print(f"User {user['name']} recognized and logged in.")
         log_user_activity(user["id"], "login")
         send_email_with_content(f"User {user['name']} logged in at {datetime.now()}")
+        return user
     else:
         print("Unrecognized RFID tag.")
+        return null
 
 # Log user activity in the database
 def log_user_activity(user_id, action):
@@ -461,22 +462,39 @@ def log_user_activity(user_id, action):
     conn.commit()
     conn.close()
 
+from flask import copy_current_request_context
+
 def listen_for_rfid():
+    def on_message(client, userdata, msg):
+        rfid_tag_detected = msg.payload.decode()
+        print(f"RFID Tag Detected: {rfid_tag_detected}")
+        handle_rfid(rfid_tag_detected)  # Call handle_rfid in main thread
+
     client = paho.Client()
-    client.on_message = on_rfid_message
+    client.on_message = on_message
 
-    if client.connect(MQTT_BROKER, MQTT_PORT, 60) != 0:
-        print("Could not connect to MQTT Broker!")
-        sys.exit(-1)
-
-    client.subscribe(RFID_TOPIC)
+    client.connect("192.168.50.194", 1883, 60)
+    client.subscribe("rfid/tag")
 
     try:
-        client.loop_forever()
+        client.loop_forever()  # Blocking call, will keep running until interrupted
     except KeyboardInterrupt:
-        print("Disconnecting from broker")
-    client.disconnect()
+        print("Disconnected from broker")
+        client.disconnect()
 
+def handle_rfid(tag):
+    user = process_rfid_scan(tag)
+    if user:
+        # Instead of using Flask session, use a global 
+        global current_user
+        current_user = {
+            'id': user['id'],
+            'name': user['name'],
+            'email': user['email']
+        }
+        print(f"User {user['name']} recognized and logged in.")
+    else:
+        print("Unrecognized RFID tag.")
     
 if __name__ == "__main__":
     threading.Thread(target=monitor_temp, daemon=True).start()

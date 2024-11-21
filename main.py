@@ -121,6 +121,15 @@ def get_light_data():
         "email_sent": light_status  # Simplified example
     })
 
+@app.route("/login", methods=["GET"])
+def login_page():
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET"])
+def register_page():
+    return render_template("register.html")
+
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json

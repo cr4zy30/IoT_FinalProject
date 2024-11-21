@@ -215,6 +215,16 @@ def logout():
     session.pop("user", None)  # Clear session data
     return redirect(url_for("login_page"))
 
+@app.route("/scan", methods=["POST"])
+def scan_rfid():
+    rfid_tag = request.json.get("rfid_tag")
+    if not rfid_tag:
+        return jsonify({"success": False, "error": "RFID tag is required."}), 400
+    
+    # Process the scanned tag
+    return process_rfid_scan(rfid_tag)
+
+
 
 # -- HELPER FUNCTIONS --
 
@@ -423,7 +433,19 @@ def process_rfid_scan(tag):
     conn.close()
     
     if user:
-        print(f"User {user['name']} recognized.")
+        if "user" in session:
+            current_user = session.pop("user", None)
+            print(f"User {current_user['name']} logged out.")
+
+        # Log in the new user
+        session["user"] = {
+            "id": user["id"],
+            "name": user["name"],
+            "email": user["email"],
+            "light_threshold": user["light_threshold"],
+            "temp_threshold": user["temp_threshold"],
+        }
+        print(f"User {user['name']} recognized and logged in.")
         log_user_activity(user["id"], "login")
         send_email_with_content(f"User {user['name']} logged in at {datetime.now()}")
     else:

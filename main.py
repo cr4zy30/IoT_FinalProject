@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 import threading
 import time
 import RPi.GPIO as GPIO  # uncomment if on Raspberry Pi
@@ -8,6 +8,7 @@ import email
 import ssl
 import paho.mqtt.client as paho
 import sys
+import sqlite3
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from email.message import EmailMessage
@@ -50,6 +51,19 @@ sender_email = "zlatintsvetkov@gmail.com"
 receiver_email = sender_email
 email_password = "flvz vkjt bpwh ioom"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
+
+MQTT_BROKER = "192.168.50.194"
+MQTT_PORT = 1883
+RFID_TOPIC = "rfid/tag"
+rfid_tag_detected = None
+
+# --- DATABASE FUNCTIONS ---
+DATABASE = 'iot_system.db'
+
+def get_db_connection():
+    conn = sqlite3.connect(DATABASE)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # -- ROUTES -- 
 
@@ -106,6 +120,75 @@ def get_light_data():
         "light_status": light_status,
         "email_sent": light_status  # Simplified example
     })
+
+@app.route("/register", methods=["POST"])
+def register():
+    data = request.json
+    name = data.get("name")
+    email = data.get("email")
+    rfid_tag = data.get("rfid_tag")
+    light_threshold = data.get("light_threshold")
+    temp_threshold = data.get("temp_threshold")
+    
+    try:
+        conn = get_db_connection()
+        conn.execute(
+            "INSERT INTO users (name, email, rfid_tag, light_threshold, temp_threshold) VALUES (?, ?, ?, ?, ?)",
+            (name, email, rfid_tag, light_threshold, temp_threshold)
+        )
+        conn.commit()
+        conn.close()
+        return jsonify({"message": "User registered successfully"}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"error": "Email or RFID tag already exists"}), 400
+
+@app.route("/login", methods=["POST"])
+def login():
+    rfid_tag = request.json.get("rfid_tag")
+    conn = get_db_connection()
+    user = conn.execute(
+        "SELECT * FROM users WHERE rfid_tag = ?", (rfid_tag,)
+    ).fetchone()
+    conn.close()
+    
+    if user:
+        # Log user login
+        conn = get_db_connection()
+        conn.execute(
+            "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
+            (user["id"], "login")
+        )
+        conn.commit()
+        conn.close()
+        
+        # Send email
+        send_email_with_content(
+            f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+        
+        return jsonify({
+            "message": "Login successful",
+            "user": {
+                "name": user["name"],
+                "email": user["email"],
+                "light_threshold": user["light_threshold"],
+                "temp_threshold": user["temp_threshold"]
+            }
+        }), 200
+    return jsonify({"error": "RFID not recognized"}), 401
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    user_id = request.json.get("user_id")
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
+        (user_id, "logout")
+    )
+    conn.commit()
+    conn.close()
+    return jsonify({"message": "User logged out"}), 200
+
 
 
 # -- HELPER FUNCTIONS --
@@ -269,7 +352,7 @@ def check_light():
     client = paho.Client()
     client.on_message = on_message
 
-    if client.connect("192.168.50.194", 1883, 60) != 0:
+    if client.connect(MQTT_BROKER, MQTT_PORT, 60) != 0:
         print("Could not connect to MQTT Broker!")
         sys.exit(-1)
 
@@ -300,19 +383,57 @@ def send_email_with_content(content):
     except Exception as e:
         print(f"Error sending email: {e}")
 
+# -- PHASE 4 --
+def on_rfid_message(client, userdata, msg):
+    global rfid_tag_detected
+    if msg.topic == RFID_TOPIC:
+        rfid_tag_detected = msg.payload.decode()
+        print(f"RFID Tag Detected: {rfid_tag_detected}")
+        process_rfid_scan(rfid_tag_detected)
 
-def initiate_temp_thread():
-    thread = threading.Thread(target=monitor_temp)
-    thread.daemon = True
-    thread.start()
+# Process scanned RFID tags
+def process_rfid_scan(tag):
+    conn = get_db_connection()
+    user = conn.execute("SELECT * FROM users WHERE rfid_tag = ?", (tag,)).fetchone()
+    conn.close()
     
-def initiate_light_thread():
-    thread = threading.Thread(target=check_light)
-    thread.daemon = True
-    thread.start()
+    if user:
+        print(f"User {user['name']} recognized.")
+        log_user_activity(user["id"], "login")
+        send_email_with_content(f"User {user['name']} logged in at {datetime.now()}")
+    else:
+        print("Unrecognized RFID tag.")
+
+# Log user activity in the database
+def log_user_activity(user_id, action):
+    conn = get_db_connection()
+    conn.execute(
+        "INSERT INTO activity_logs (user_id, action, timestamp) VALUES (?, ?, ?)",
+        (user_id, action, datetime.now())
+    )
+    conn.commit()
+    conn.close()
+
+def listen_for_rfid():
+    client = paho.Client()
+    client.on_message = on_rfid_message
+
+    if client.connect(MQTT_BROKER, MQTT_PORT, 60) != 0:
+        print("Could not connect to MQTT Broker!")
+        sys.exit(-1)
+
+    client.subscribe(RFID_TOPIC)
+
+    try:
+        client.loop_forever()
+    except KeyboardInterrupt:
+        print("Disconnecting from broker")
+    client.disconnect()
+
     
 if __name__ == "__main__":
-    initiate_temp_thread()
-    initiate_light_thread()
+    threading.Thread(target=monitor_temp, daemon=True).start()
+    threading.Thread(target=check_light, daemon=True).start()
+    threading.Thread(target=listen_for_rfid, daemon=True).start()
     app.run(debug=True, use_reloader=False)
 

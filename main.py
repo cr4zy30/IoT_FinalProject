@@ -85,7 +85,7 @@ def home():
     print("user is in session so RENDERING the dashboard") # DEBUG
 
     userData = session["user"]    
-    print(f"User: ", user) # DEBUG
+    print(f"User: ", userData) # DEBUG
     return render_template("dashboard.html", user=userData)
 
 

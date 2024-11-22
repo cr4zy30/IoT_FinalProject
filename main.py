@@ -10,14 +10,16 @@ import ssl
 import paho.mqtt.client as paho
 import sys
 import sqlite3
+import requests
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
 from email.message import EmailMessage
 
 app = Flask(__name__)
-app.secret_key = 'wompwomp' 
-app.config['SESSION_TYPE'] = 'filesystem'
-Session(app)
+app.secret_key = 'womp_womp' 
+app.config['SESSION_TYPE'] = 'filesystem' 
+Session(app) 
+
 from Freenove_DHT import DHT             
 
 # -- GLOBAL VARIABLES --
@@ -55,7 +57,7 @@ receiver_email = sender_email
 email_password = "flvz vkjt bpwh ioom"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
-MQTT_BROKER = "192.168.0.124"
+MQTT_BROKER = "192.168.50.194"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
@@ -74,12 +76,18 @@ def get_db_connection():
 
 @app.route("/", methods=["GET"])
 def home():
-    if "user" not in session:  # Check if the user is logged in
-        return redirect(url_for("login_page"))
+    print("entered home()") # DEBUG
+    if "user" not in session:  
+        print("user NOT in session so redirecting to login") # DEBUG
+        return redirect(url_for("login"))
 
     # Fetch user data for the dashboard
-    user = session["user"]
-    return render_template("dashboard.html", user=user)
+    print("user is in session so RENDERING the dashboard") # DEBUG
+
+    userData = session["user"]    
+    print(f"User: ", user) # DEBUG
+    return render_template("dashboard.html", user=userData)
+
 
 @app.route("/switch_led", methods=["GET"])
 def switch_led_state():
@@ -131,13 +139,15 @@ def get_light_data():
         "email_sent": light_status  # Simplified example
     })
 
-@app.route("/login", methods=["GET"])
-def login_page():
-    return render_template("login.html")
-
+#-- FOR debugging for now
 @app.route("/register", methods=["GET"])
 def register_page():
-    return render_template("register.html")
+    if "user" in session:
+        print(f"Session", session["user"]) # DEBUG
+    else:
+        print("Session EXPIRED") # DEBUG
+    user = {'email': 'zlatin@','name':'zlatin','light_threshold':'500', 'temp_threshold':'25'}
+    return render_template("dashboard.html", user=user)
 
 
 @app.route("/register", methods=["POST"])
@@ -161,9 +171,24 @@ def register():
     except sqlite3.IntegrityError:
         return jsonify({"error": "Email or RFID tag already exists"}), 400
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["POST", "GET"])
 def login():
+    if request.method == "GET":
+        print("Accessing LOGIN from GET") # DEBUG
+        if "user" in session:
+            print("user has a session") # DEBUG
+            return render_template("dashboard.html", user=session['user'])
+        return render_template("login.html")
+
+    #--POST--
+    print("accsessing LOGIN from POST") # DEBUUG
+    #if you already have a session and are trying to log in, first log out before starting new session
+    if "user" in session:
+        print("Trying to login when user is already logged in") # DEBUG
+        session.pop("user", None) 
+
     rfid_tag = request.json.get("rfid_tag")
+    print("Just fetched the rfid tag of user trying to log in") # DEBUG
     conn = get_db_connection()
     user = conn.execute(
         "SELECT * FROM users WHERE rfid_tag = ?", (rfid_tag,)
@@ -171,7 +196,9 @@ def login():
     conn.close()
     
     if user:
+        print("User trying to login EXISTS in DB") #DEBUG
         session["user"] = {
+            "id": user["id"],
             "name": user["name"],
             "email": user["email"],
             "light_threshold": user["light_threshold"],
@@ -190,21 +217,21 @@ def login():
         send_email_with_content(
             f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
-        
-        return jsonify({
-            "message": "Login successful",
-            "user": {
-                "name": user["name"],
-                "email": user["email"],
-                "light_threshold": user["light_threshold"],
-                "temp_threshold": user["temp_threshold"]
-            }
-        }), 200
+        print("session was created for user ")
+        print(session["user"]["name"])
+        return render_template("dashboard.html", user=session['user'])
+        #return render_template("register.html") tried for debugging, but it doesn't want to render ANYTHING, i don't know why
+
+    print("User trying to login DOES NOT EXISTS in DB") #DEBUG
     return jsonify({"error": "RFID not recognized"}), 401
 
 @app.route("/logout", methods=["GET"])
 def logout():
-    user_id = request.json.get("user_id")
+    if "user" not in session:
+        print("trying to log out despite there not being a session") # DEBUG
+        return redirect(url_for("login"))
+    # log when user logs out
+    user_id = session["user"]["id"]
     
     conn = get_db_connection()
     conn.execute(
@@ -213,18 +240,9 @@ def logout():
     )
     conn.commit()
     conn.close()
-    session.pop("user", None)  # Clear session data
-    return redirect(url_for("login_page"))
-
-@app.route("/scan", methods=["POST"])
-def scan_rfid():
-    rfid_tag = request.json.get("rfid_tag")
-    if not rfid_tag:
-        return jsonify({"success": False, "error": "RFID tag is required."}), 400
-    
-    # Process the scanned tag
-    return process_rfid_scan(rfid_tag)
-
+    session.pop("user", None) 
+    print("user successfully logged out") # DEBUG
+    return redirect(url_for("login"))
 
 
 # -- HELPER FUNCTIONS --
@@ -384,7 +402,17 @@ def check_light():
             if light_status:
                 current_time = datetime.now().strftime("%H:%M")
                 send_email_with_content(f"The Light is ON at {current_time}")
-
+        elif msg.topic == RFID_TOPIC:
+            print("Subscriber received message MATCHING RFID_TOPIC") # DEBUG
+            rfid_tag = msg.payload.decode()
+            print(f"RFID Tag Detected: {rfid_tag}")
+            uri = "http://localhost:5000/login"
+            headers = {"Content-Type": "application/json"}
+            data = {"rfid_tag": rfid_tag}
+            print("About to send POST /login request") # DEBUG
+            
+            # Use the requests library to send the POST request
+            response = requests.post(uri, headers=headers, json=data)
     client = paho.Client()
     client.on_message = on_message
 
@@ -394,6 +422,7 @@ def check_light():
 
     client.subscribe("photoresistor/light_intensity")
     client.subscribe("photoresistor/light")
+    client.subscribe(RFID_TOPIC)
 
     try:
         client.loop_forever()
@@ -420,45 +449,6 @@ def send_email_with_content(content):
         print(f"Error sending email: {e}")
 
 # -- PHASE 4 --
-def on_rfid_message(client, userdata, msg):
-    if msg.topic == RFID_TOPIC:
-        rfid_tag = msg.payload.decode()
-        print(f"RFID Tag Detected: {rfid_tag}")
-        response = process_rfid_scan(rfid_tag)
-
-# Process scanned RFID tags
-def process_rfid_scan(tag):
-    global current_user
-
-    conn = get_db_connection()
-    user = conn.execute("SELECT * FROM users WHERE rfid_tag = ?", (tag,)).fetchone()
-    conn.close()
-
-    if user:
-        # Check if another user is logged in
-        if current_user:
-            # Log out the current user
-            print(f"Logging out {current_user['name']}.")
-            log_user_activity(current_user['id'], "logout")
-            current_user = None  # Clear the global user
-
-        # Log in the new user
-        current_user = {
-            "id": user["id"],
-            "name": user["name"],
-            "email": user["email"],
-            "light_threshold": user["light_threshold"],
-            "temp_threshold": user["temp_threshold"],
-        }
-        print(f"User {current_user['name']} logged in.")
-        log_user_activity(user["id"], "login")
-        send_email_with_content(
-            f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        )
-        return jsonify({"message": f"Welcome {user['name']}!"}), 200
-    else:
-        print("Unrecognized RFID tag.")
-        return jsonify({"error": "RFID not recognized"}), 401
 
 # Log user activity in the database
 def log_user_activity(user_id, action):
@@ -469,36 +459,7 @@ def log_user_activity(user_id, action):
     )
     conn.commit()
     conn.close()
-def start_rfid_listener():
-    client = paho.Client()
-    client.on_message = on_rfid_message
 
-    if client.connect(MQTT_BROKER, MQTT_PORT, 60) != 0:
-        print("Could not connect to MQTT Broker!")
-        sys.exit(-1)
-
-    client.subscribe(RFID_TOPIC)
-
-    try:
-        client.loop_forever()
-    except KeyboardInterrupt:
-        print("Disconnecting from broker.")
-        client.disconnect()
-
-
-def handle_rfid(tag):
-    user = process_rfid_scan(tag)
-    if user:
-        # Instead of using Flask session, use a global 
-        global current_user
-        current_user = {
-            'id': user['id'],
-            'name': user['name'],
-            'email': user['email']
-        }
-        print(f"User {user['name']} recognized and logged in.")
-    else:
-        print("Unrecognized RFID tag.")
     
 if __name__ == "__main__":
     threading.Thread(target=monitor_temp, daemon=True).start()

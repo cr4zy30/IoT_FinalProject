@@ -18,8 +18,9 @@
         <p>Email: {{ user['email'] }}</p>
         <p>Light Threshold: {{ user['light_threshold'] }}</p>
         <p>Temperature Threshold: {{ user['temp_threshold'] }}</p>
-        <button onclick="logout()">Logout</button>
+        <a href="/logout">Logout</a>
       </div>
+
 
       <div class="sensors">
         <div id="wrapper">
@@ -84,19 +85,5 @@
   </body>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
-  <script>function logout(){fetch("/logout", {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      if (data.success) {
-        alert(data.message); 
-      } else {
-        alert(data.error); 
-      }
-    })
-    .catch((error) => console.error("Error:", error));}</script>
+
 </html>

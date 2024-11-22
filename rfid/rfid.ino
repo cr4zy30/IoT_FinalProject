@@ -6,9 +6,11 @@
 #define RST_PIN 4
 #define SS_PIN 5
 
-const char *ssid = "TP-Link_2AD8";
-const char *password = "14730078";
-const char *mqtt_server = "192.168.0.124";
+//const char *ssid = "TP-Link_2AD8";
+//const char *password = "14730078";
+const char *ssid = "Tsvetkovi";
+const char *password = "19650413";
+const char *mqtt_server = "192.168.50.194";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -61,6 +63,7 @@ void loop() {
 
   String tag = "";
   for (byte i = 0; i < rfid.uid.size; i++) {
+    tag += String(rfid.uid.uidByte[i] < 0x10 ? "0" : "");
     tag += String(rfid.uid.uidByte[i], HEX);
   }
   Serial.println("Tag detected: " + tag);

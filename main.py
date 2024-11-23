@@ -61,8 +61,7 @@ MQTT_BROKER = "192.168.50.194"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
-current_user = None
-
+login_queue = []
 # --- DATABASE FUNCTIONS ---
 DATABASE = 'db_files/iot_system.db'
 
@@ -173,6 +172,7 @@ def register():
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
+    global login_queue
     if request.method == "GET":
         print("Accessing LOGIN from GET") # DEBUG
         if "user" in session:
@@ -182,13 +182,15 @@ def login():
 
     #--POST--
     print("accsessing LOGIN from POST") # DEBUUG
-    #if you already have a session and are trying to log in, first log out before starting new session
-    if "user" in session:
-        print("Trying to login when user is already logged in") # DEBUG
-        session.pop("user", None) 
-
-    rfid_tag = request.json.get("rfid_tag")
-    print("Just fetched the rfid tag of user trying to log in") # DEBUG
+    # #if you already have a session and are trying to log in, first log out before starting new session
+    # if "user" in session:
+    #     print("Trying to login when user is already logged in") # DEBUG
+    #     session.pop("user", None) 
+    if not login_queue:
+        return jsonify({"message":"No RFID tags in the queue"}), 200
+    rfid_tag = login_queue.pop(0)
+    print(f"Processing RFID Tag from queue: {rfid_tag}") # DEBUG
+    
     conn = get_db_connection()
     user = conn.execute(
         "SELECT * FROM users WHERE rfid_tag = ?", (rfid_tag,)
@@ -204,23 +206,22 @@ def login():
             "light_threshold": user["light_threshold"],
             "temp_threshold": user["temp_threshold"],
         }
-        # Log user login
+            # Log user login
         conn = get_db_connection()
         conn.execute(
-            "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
+           "INSERT INTO activity_logs (user_id, action) VALUES (?, ?)",
             (user["id"], "login")
         )
         conn.commit()
         conn.close()
-        
+            
         # Send email
         send_email_with_content(
             f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
         print("session was created for user ")
         print(session["user"]["name"])
-        return render_template("dashboard.html", user=session['user'])
-        #return render_template("register.html") tried for debugging, but it doesn't want to render ANYTHING, i don't know why
+        return jsonify({"welcome_message":"Wecome home bratushka"}), 200
 
     print("User trying to login DOES NOT EXISTS in DB") #DEBUG
     return jsonify({"error": "RFID not recognized"}), 401
@@ -383,10 +384,10 @@ def run_motor():
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
 def check_light():
-    global light_status, led_state, light_intensity
+    global light_status, led_state, light_intensity, login_queue
 
     def on_message(client, userdata, msg):
-        global light_status, led_state, light_intensity
+        global light_status, led_state, light_intensity, login_queue
 
         if msg.topic == "photoresistor/light_intensity":
             light_intensity = int(msg.payload.decode())
@@ -406,13 +407,9 @@ def check_light():
             print("Subscriber received message MATCHING RFID_TOPIC") # DEBUG
             rfid_tag = msg.payload.decode()
             print(f"RFID Tag Detected: {rfid_tag}")
-            uri = "http://localhost:5000/login"
-            headers = {"Content-Type": "application/json"}
-            data = {"rfid_tag": rfid_tag}
-            print("About to send POST /login request") # DEBUG
             
-            # Use the requests library to send the POST request
-            response = requests.post(uri, headers=headers, json=data)
+            login_queue.append(rfid_tag)
+            print(f"RFID tag {rfid_tag} added to queue") 
     client = paho.Client()
     client.on_message = on_message
 

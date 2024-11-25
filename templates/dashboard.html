@@ -5,430 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>IoT Dashboard</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        padding: 10px;
-      }
-      h1 {
-        text-align: center;
-        margin-bottom: 20px;
-      }
-      .dashboard {
-        display: grid;
-        grid-template-columns: 1f 2fr 1fr;
-        grid-template-rows: auto;
-        gap: 10px;
-        padding: 20px;
-        margin: auto;
-        height: 750px;
-        width: 1500px;
-        border: 2px solid black;
-      }
-      .led {
-        grid-column: 3 / 4;
-        grid-row: 1 / 2;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 40px;
-        border: 1px solid black;
-      }
-      .profile {
-        grid-column: 1 /2;
-        grid-row: 1 / 3;
-        background-color: grey;
-      }
-      .sensors {
-        border: 1px solid black;
-        /* width: 200px; */
-        grid-column: 2 / 3;
-        grid-row: 1 / 3;
-        padding: 20px;
-      }
-
-      .mobile {
-        grid-column: 3 / 4;
-        grid-row: 2/3;
-        border: 1px solid black;
-      }
-
-      @import url("https://fonts.googleapis.com/css?family=Jaldi&display=swap");
-
-      #wrapper {
-        margin: auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-
-      #info {
-        opacity: 0.2;
-        margin: 0;
-        text-align: center;
-      }
-      #termometer {
-        width: 25px;
-        background: #38383f;
-        height: 240px;
-        position: relative;
-        border: 9px solid #2a2a2e;
-        border-radius: 20px;
-        z-index: 1;
-        margin-bottom: 50px;
-      }
-      #termometer:before,
-      #termometer:after {
-        position: absolute;
-        content: "";
-        border-radius: 50%;
-      }
-      #termometer:before {
-        width: 100%;
-        height: 34px;
-        bottom: 9px;
-        background: #38383f;
-        z-index: -1;
-      }
-      #termometer:after {
-        transform: translateX(-50%);
-        width: 50px;
-        height: 50px;
-        background-color: #3dcadf;
-        bottom: -41px;
-        border: 9px solid #2a2a2e;
-        z-index: -3;
-        left: 50%;
-      }
-      #termometer #graduations {
-        height: 59%;
-        top: 20%;
-        width: 50%;
-      }
-      #termometer #graduations,
-      #termometer #graduations:before {
-        position: absolute;
-        border-top: 2px solid rgba(0, 0, 0, 0.5);
-        border-bottom: 2px solid rgba(0, 0, 0, 0.5);
-      }
-      #termometer #graduations:before {
-        content: "";
-        height: 34%;
-        width: 100%;
-        top: 32%;
-      }
-      #termometer #temperature {
-        bottom: 0;
-        background: linear-gradient(#f17a65, #3dcadf) no-repeat bottom;
-        width: 100%;
-        border-radius: 20px;
-        background-size: 100% 240px;
-        transition: all 0.2s ease-in-out;
-      }
-      #termometer #temperature,
-      #termometer #temperature:before,
-      #termometer #temperature:after {
-        position: absolute;
-      }
-      #termometer #temperature:before {
-        content: attr(data-value);
-        background: rgba(0, 0, 0, 0.7);
-        color: white;
-        z-index: 2;
-        padding: 5px 10px;
-        border-radius: 5px;
-        font-size: 1em;
-        line-height: 1;
-        transform: translateY(50%);
-        left: calc(100% + 1em / 1.5);
-        top: calc(-1em + 5px - 5px * 2);
-      }
-      #termometer #temperature:after {
-        content: "";
-        border-top: 0.4545454545em solid transparent;
-        border-bottom: 0.4545454545em solid transparent;
-        border-right: 0.6666666667em solid rgba(0, 0, 0, 0.7);
-        left: 100%;
-        top: calc(-1em / 2.2 + 5px);
-      }
-      #playground {
-        font-size: 1.1em;
-      }
-      #playground #range {
-        display: flex;
-      }
-      #playground #range input[type="text"] {
-        width: 2em;
-        background: transparent;
-        border: none;
-        color: inherit;
-        font: inherit;
-        margin: 0 5px;
-        padding: 0px 5px;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease-in-out;
-      }
-      #playground #range input[type="text"]:focus {
-        border-color: #3dcadf;
-        outline: none;
-      }
-      #playground #range input[type="text"]:first-child {
-        text-align: right;
-      }
-      #playground #unit {
-        width: 100%;
-        margin: 0;
-        text-align: center;
-      }
-      #playground #unit:hover {
-        cursor: pointer;
-      }
-      input[type="range"] {
-        -webkit-appearance: none;
-        background: transparent;
-        margin: 5.5px 0;
-        width: 100%;
-      }
-      input[type="range"]::-moz-focus-outer {
-        border: 0;
-      }
-      input[type="range"]:hover {
-        cursor: pointer;
-      }
-      input[type="range"]:focus {
-        outline: 0;
-      }
-      input[type="range"]:focus::-webkit-slider-runnable-track {
-        background: #313137;
-        border-color: #313137;
-      }
-      input[type="range"]:focus::-ms-fill-lower {
-        background: #2a2a2e;
-      }
-      input[type="range"]:focus::-ms-fill-upper {
-        background: #313137;
-        border-color: #313137;
-      }
-      input[type="range"]::-webkit-slider-runnable-track {
-        cursor: default;
-        height: 10px;
-        transition: all 0.2s ease;
-        width: 100%;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 1px 1px 1px transparent, 0 0 1px rgba(13, 13, 13, 0);
-        background: #2a2a2e;
-        border: 2px solid #2a2a2e;
-        border-radius: 5px;
-      }
-      input[type="range"]::-webkit-slider-thumb {
-        box-shadow: 4px 4px 4px transparent, 0 0 4px rgba(13, 13, 13, 0);
-        background: #3dcadf;
-        border: 0px solid #3d3d44;
-        border-radius: 12px;
-        cursor: pointer;
-        height: 11px;
-        width: 18px;
-        -webkit-appearance: none;
-        margin-top: -2.5px;
-      }
-      input[type="range"]::-moz-range-track {
-        box-shadow: 1px 1px 1px transparent, 0 0 1px rgba(13, 13, 13, 0);
-        cursor: default;
-        height: 10px;
-        transition: all 0.2s ease;
-        width: 100%;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-        background: #2a2a2e;
-        border: 2px solid #2a2a2e;
-        border-radius: 5px;
-        height: 5px;
-      }
-      input[type="range"]::-moz-range-thumb {
-        box-shadow: 4px 4px 4px transparent, 0 0 4px rgba(13, 13, 13, 0);
-        background: #3dcadf;
-        border: 0px solid #3d3d44;
-        border-radius: 12px;
-        cursor: pointer;
-        height: 7px;
-        width: 14px;
-      }
-      input[type="range"]::-ms-track {
-        cursor: default;
-        height: 10px;
-        transition: all 0.2s ease;
-        width: 100%;
-        cursor: pointer;
-        transition: all 0.2s ease-in-out;
-        background: transparent;
-        border-color: transparent;
-        border-width: 5.5px 0;
-        color: transparent;
-      }
-      input[type="range"]::-ms-fill-lower {
-        box-shadow: 1px 1px 1px transparent, 0 0 1px rgba(13, 13, 13, 0);
-        background: #222226;
-        border: 2px solid #2a2a2e;
-        border-radius: 10px;
-      }
-      input[type="range"]::-ms-fill-upper {
-        box-shadow: 1px 1px 1px transparent, 0 0 1px rgba(13, 13, 13, 0);
-        background: #2a2a2e;
-        border: 2px solid #2a2a2e;
-        border-radius: 10px;
-      }
-      input[type="range"]::-ms-thumb {
-        box-shadow: 4px 4px 4px transparent, 0 0 4px rgba(13, 13, 13, 0);
-        background: #3dcadf;
-        border: 0px solid #3d3d44;
-        border-radius: 12px;
-        cursor: pointer;
-        height: 7px;
-        width: 14px;
-        margin-top: 2.5px;
-      }
-      input[type="range"]:disabled::-webkit-slider-thumb {
-        cursor: not-allowed;
-      }
-      input[type="range"]:disabled::-moz-range-thumb {
-        cursor: not-allowed;
-      }
-      input[type="range"]:disabled::-ms-thumb {
-        cursor: not-allowed;
-      }
-      input[type="range"]:disabled::-webkit-slider-runnable-track {
-        cursor: not-allowed;
-      }
-      input[type="range"]:disabled::-ms-fill-lower {
-        cursor: not-allowed;
-      }
-      input[type="range"]:disabled::-ms-fill-upper {
-        cursor: not-allowed;
-      }
-
-      @import url("https://fonts.googleapis.com/css?family=Lato:100,100i,300,300i,400,400i,700,700i,900,900i");
-
-      .hum-container * {
-        box-sizing: border-box;
-      }
-
-      ul {
-        list-style: none;
-      }
-
-      .guage-holder {
-        width: 220px;
-        margin: 50px auto 0;
-        position: relative;
-        text-align: center;
-      }
-
-      .circle-mask {
-        width: 220px;
-        height: 106px;
-        padding: 5px 10px 0;
-        border-bottom: 1px solid #ccc;
-        position: relative;
-        text-align: center;
-        overflow: hidden;
-      }
-
-      .circle,
-      .circle-inner {
-        width: 200px;
-        height: 200px;
-        border-radius: 50%;
-        border: 10px solid #ccc;
-        position: relative;
-      }
-
-      .circle-inner {
-        position: absolute;
-        top: -10px;
-        left: -10px;
-        border: 10px solid transparent;
-        border-bottom: 10px solid #3dcadf;
-        border-left: 10px solid #3dcadf;
-        transition: 0.3s ease-in-out;
-        transform: rotate(-45deg);
-      }
-
-      .circle-inner:after {
-        content: "";
-        position: absolute;
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: white;
-        border: 4px solid #3dcadf;
-        left: 14px;
-        top: 14px;
-      }
-
-      .percentage {
-        margin: 20px 0;
-        font-weight: bold;
-        color: #000000;
-        font-size: 15px;
-      }
-
-      .text-box {
-        width: 60px;
-        height: 30px;
-        text-align: center;
-        padding: 0 10px;
-        font-size: 15px;
-        color: #666;
-      }
-
-      .gauge-copy {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        position: absolute;
-        background: #666666;
-        top: 50%;
-        left: 50%;
-        transition: 0.3s ease-in-out;
-        transform: translate(-50%, -50%) rotate(0deg);
-        margin: 34px 0 0;
-      }
-
-      .gauge-copy:after {
-        content: "";
-        position: absolute;
-        width: 22px;
-        height: 22px;
-        border-radius: 50%;
-        background: #3d3d44;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-      }
-
-      .gauge-copy:before {
-        content: "";
-        position: absolute;
-        border: 7px solid transparent;
-        border-right: 70px solid #666666;
-        left: -75px;
-        top: 8px;
-        width: 0;
-        height: 0;
-      }
-    </style>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='thermometer.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='humidity.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='dashboard.css') }}">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='fan.css') }}">
   </head>
   <body>
     <h1>IoT Control Dashboard</h1>
     <div class="dashboard">
       <div class="profile">
-        <h1>Profile</h1>
+        <h1>Welcome, {{ user['name'] }}</h1>
+        <p>Email: {{ user['email'] }}</p>
+        <p>Light Threshold: {{ user['light_threshold'] }}</p>
+        <p>Temperature Threshold: {{ user['temp_threshold'] }}</p>
+        <a href="/logout">Logout</a>
       </div>
 
+
       <div class="sensors">
-        <div id="wrapper">
-          <div id="termometer">
+        <div class="ther-hum">
+
+          <div id="wrapper">
+            <div id="termometer">
             <div id="temperature" style="height: 0" data-value="0°C"></div>
             <div id="graduations"></div>
           </div>
@@ -449,13 +47,23 @@
         </div>
       </div>
 
+        <div class="motor">
+          <img
+            id="fan"
+            src="../static/images/fan2.png"
+            height="150"
+            alt="Fan"
+          />
+        </div>
+      </div>
+
       <div class="mobile"></div>
 
       <div class="led">
         <img
           id="switch"
           src="../static/images/switch_false.png"
-          height="150"
+          height="70"
           alt="Switch"
         />
         <img
@@ -465,96 +73,20 @@
           alt="Light bulb"
         />
       </div>
+
+      <div class="light-sensor">
+        <h2>Light Intensity</h2>
+        <div id="light-bar" style="height: 20px; background: #ccc; width: 100%; margin-bottom: 10px;">
+          <div id="light-fill" style="height: 100%; width: 0%; background: #ffa500;"></div>
+        </div>
+        <p>Current Intensity: <span id="light-value">0%</span></p>
+        <p>Status: <span id="light-status">OFF</span></p>
+        <p id="email-notification" style="color: green; display: none;">Email has been sent.</p>
+      </div>
+      
     </div>
   </body>
 
-  <script>
-    $(document).ready(function () {
-      let led_state;
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
 
-      function setHumidityValue(humidityValue) {
-        if (humidityValue === "") {
-          $(".circle-inner, .gauge-copy").css({
-            transform: "rotate(-45deg)",
-          });
-          $(".gauge-copy").css({
-            transform: "translate(-50%, -50%) rotate(0deg)",
-          });
-          $(".percentage").text("0 %");
-        } else if (humidityValue >= 0 && humidityValue <= 100) {
-          var newVal = humidityValue * 1.8 - 45;
-          $(".circle-inner, .gauge-copy").css({
-            transform: "rotate(" + newVal + "deg)",
-          });
-          $(".gauge-copy").css({
-            transform:
-              "translate(-50%, -50%) rotate(" + humidityValue * 1.8 + "deg)",
-          });
-          $(".percentage").text(humidityValue + " %");
-        } else {
-          $(".percentage").text("Invalid input value");
-        }
-      }
-
-      const config = {
-        minTemp: -20,
-        maxTemp: 50,
-      };
-
-      // Change temperature
-
-      const range = document.querySelector("input[type='range']");
-      const temperature = document.getElementById("temperature");
-
-      function setTemperature(temp) {
-        temperature.style.height =
-          ((temp - config.minTemp) / (config.maxTemp - config.minTemp)) * 100 +
-          "%";
-        temperature.dataset.value = temp + "°C";
-      }
-
-      // setTimeout(setTemperature, 1000);
-
-      fetch("/get_led_state")
-        .then((response) => response.json())
-        .then((data) => {
-          led_state = data.led_state;
-          setImages();
-        })
-        .catch((e) => console.log("Error", e));
-
-      $("#switch").click(function () {
-        fetch("/switch_led")
-          .then((response) => response.json())
-          .then((data) => {
-            led_state = data.led_state;
-            console.log(data);
-            setImages();
-          })
-          .catch((e) => console.error("Error:", e));
-      });
-
-      function updateTempHumidity() {
-        fetch("/get_temp_humidity")
-          .then((response) => response.json())
-          .then((data) => {
-            console.log("Data received:", data);
-            setTemperature(data.temperature);
-            setHumidityValue(data.humidity);
-          })
-          .catch((error) => {
-            console.error("Error fetching data:", error);
-          });
-      }
-
-      updateTempHumidity();
-
-      setInterval(updateTempHumidity, 5000);
-
-      function setImages() {
-        $("#switch").attr("src", `../static/images/switch_${led_state}.png`);
-        $("#light").attr("src", `../static/images/light_${led_state}.png`);
-      }
-    });
-  </script>
 </html>

@@ -58,10 +58,11 @@ email_password = "flvz vkjt bpwh ioom"
 email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 MQTT_BROKER = "192.168.50.194"
+MQTT_BROKER = "192.168.0.124"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
-login_queue = []
+login_queue = ""
 # --- DATABASE FUNCTIONS ---
 DATABASE = 'db_files/iot_system.db'
 
@@ -172,7 +173,7 @@ def register():
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
-    global login_queue
+    global login_queue, light_threshold, temp_threshold, receiver_email
     if request.method == "GET":
         print("Accessing LOGIN from GET") # DEBUG
         if "user" in session:
@@ -188,7 +189,7 @@ def login():
     #     session.pop("user", None) 
     if not login_queue:
         return jsonify({"message":"No RFID tags in the queue"}), 200
-    rfid_tag = login_queue.pop(0)
+    rfid_tag = login_queue
     print(f"Processing RFID Tag from queue: {rfid_tag}") # DEBUG
     
     conn = get_db_connection()
@@ -206,6 +207,7 @@ def login():
             "light_threshold": user["light_threshold"],
             "temp_threshold": user["temp_threshold"],
         }
+        receiver_email = session["user"]["email"]
             # Log user login
         conn = get_db_connection()
         conn.execute(
@@ -216,9 +218,9 @@ def login():
         conn.close()
             
         # Send email
-        send_email_with_content(
-            f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        )
+        # send_email_with_content(
+        #     f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        # )
         print("session was created for user ")
         print(session["user"]["name"])
         return jsonify({"welcome_message":"Wecome home bratushka"}), 200
@@ -228,6 +230,7 @@ def login():
 
 @app.route("/logout", methods=["GET"])
 def logout():
+    global login_queue
     if "user" not in session:
         print("trying to log out despite there not being a session") # DEBUG
         return redirect(url_for("login"))
@@ -243,6 +246,7 @@ def logout():
     conn.close()
     session.pop("user", None) 
     print("user successfully logged out") # DEBUG
+    login_queue = ""
     return redirect(url_for("login"))
 
 
@@ -407,9 +411,9 @@ def check_light():
             print("Subscriber received message MATCHING RFID_TOPIC") # DEBUG
             rfid_tag = msg.payload.decode()
             print(f"RFID Tag Detected: {rfid_tag}")
-            
-            login_queue.append(rfid_tag)
-            print(f"RFID tag {rfid_tag} added to queue") 
+            if login_queue == "":
+                login_queue = rfid_tag
+                print(f"RFID tag {rfid_tag} added to queue") 
     client = paho.Client()
     client.on_message = on_message
 

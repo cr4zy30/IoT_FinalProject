@@ -53,9 +53,7 @@ temp=0 # input comes from dht11
 threshold=24
 
 sender_email = "zlatintsvetkov@gmail.com"  
-receiver_email = sender_email
 email_password = "flvz vkjt bpwh ioom"
-email_subject = "Temperature is getting high... Should we turn on the fan?"
 
 MQTT_BROKER = "192.168.50.194"
 MQTT_BROKER = "192.168.0.124"
@@ -132,48 +130,16 @@ def get_motor_state():
 @app.route("/get_light_data", methods=["GET"])
 def get_light_data():
     global light_status, light_intensity
-    # Assume `light_intensity` and `email_sent` are updated elsewhere
     return jsonify({
         "light_intensity": light_intensity,
         "light_status": light_status,
-        "email_sent": light_status  # Simplified example
+        "email_sent": light_status 
     })
 
-#-- FOR debugging for now
-@app.route("/register", methods=["GET"])
-def register_page():
-    if "user" in session:
-        print(f"Session", session["user"]) # DEBUG
-    else:
-        print("Session EXPIRED") # DEBUG
-    user = {'email': 'zlatin@','name':'zlatin','light_threshold':'500', 'temp_threshold':'25'}
-    return render_template("dashboard.html", user=user)
-
-
-@app.route("/register", methods=["POST"])
-def register():
-    data = request.json
-    name = data.get("name")
-    email = data.get("email")
-    rfid_tag = data.get("rfid_tag")
-    light_threshold = data.get("light_threshold")
-    temp_threshold = data.get("temp_threshold")
-    
-    try:
-        conn = get_db_connection()
-        conn.execute(
-            "INSERT INTO users (name, email, rfid_tag, light_threshold, temp_threshold) VALUES (?, ?, ?, ?, ?)",
-            (name, email, rfid_tag, light_threshold, temp_threshold)
-        )
-        conn.commit()
-        conn.close()
-        return jsonify({"message": "User registered successfully"}), 201
-    except sqlite3.IntegrityError:
-        return jsonify({"error": "Email or RFID tag already exists"}), 400
 
 @app.route("/login", methods=["POST", "GET"])
 def login():
-    global login_queue, light_threshold, temp_threshold, receiver_email
+    global login_queue, light_threshold, temp_threshold
     if request.method == "GET":
         print("Accessing LOGIN from GET") # DEBUG
         if "user" in session:
@@ -207,7 +173,6 @@ def login():
             "light_threshold": user["light_threshold"],
             "temp_threshold": user["temp_threshold"],
         }
-        receiver_email = session["user"]["email"]
             # Log user login
         conn = get_db_connection()
         conn.execute(
@@ -218,9 +183,8 @@ def login():
         conn.close()
             
         # Send email
-        # send_email_with_content(
-        #     f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        # )
+        content = (f"User {user['name']} logged in at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        send_email(sender_email, "User Login", content)
         print("session was created for user ")
         print(session["user"]["name"])
         return jsonify({"welcome_message":"Wecome home bratushka"}), 200
@@ -270,32 +234,22 @@ def get_sensors_info():
         "humidity": round(dht.getHumidity(), 2)
     }
 
-def send_email():
+def send_email(receiver, subject, content):
     port = 465
     smtp_server = "smtp.gmail.com"
 
     message = EmailMessage()
-    message["Subject"] = email_subject;
+    message["Subject"] = subject;
     message["From"] = sender_email
-    message["To"] = receiver_email
-
-    message.set_content("""\
-
-    Do you want to turn on the fan? 
-    Reply "YES" or "NO"
-
-    Only the FIRST reply will be considered.
-    
-    Note: you have 1 minute to answer the message, otherwise your response will be ignored.
-
-    """)
+    message["To"] = receiver
+    message.set_content(content)
 
     context = ssl.create_default_context()
 
     try:
         with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
             server.login(sender_email, email_password)
-            server.sendmail(sender_email, receiver_email, message.as_string())
+            server.sendmail(sender_email, receiver, message.as_string())
             print("Email sent successfully.")
     except Exception as e:
         print(f"Error sending email: {e}")
@@ -358,7 +312,18 @@ def monitor_temp():
                 break
 
             sent_time = datetime.now()
-            send_email()
+            subject = "Temperature is getting high... Should we turn on the fan?"
+            content = ("""\
+
+                Do you want to turn on the fan? 
+                Reply "YES" or "NO"
+
+                Only the FIRST reply will be considered.
+                
+                Note: you have 1 minute to answer the message, otherwise your response will be ignored.
+
+                """)
+            send_email(session["user"]["email"],subject,content)
 
             time.sleep(20)
 
@@ -406,7 +371,10 @@ def check_light():
             # Send email if the light turns on
             if light_status:
                 current_time = datetime.now().strftime("%H:%M")
-                send_email_with_content(f"The Light is ON at {current_time}")
+                receiver = session["user"]["email"]
+                subject = "Light Status Notification"
+                content = (f"The Light is ON at {current_time}")
+                send_email(receiver, subject, content)
         elif msg.topic == RFID_TOPIC:
             print("Subscriber received message MATCHING RFID_TOPIC") # DEBUG
             rfid_tag = msg.payload.decode()
@@ -430,24 +398,6 @@ def check_light():
     except KeyboardInterrupt:
         print("Disconnecting from broker")
     client.disconnect()
-
-def send_email_with_content(content):
-    port = 465
-    smtp_server = "smtp.gmail.com"
-    message = EmailMessage()
-    message["Subject"] = "Light Status Notification"
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message.set_content(content)
-
-    context = ssl.create_default_context()
-    try:
-        with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
-            server.login(sender_email, email_password)
-            server.send_message(message)
-            print("Notification Email Sent.")
-    except Exception as e:
-        print(f"Error sending email: {e}")
 
 # -- PHASE 4 --
 

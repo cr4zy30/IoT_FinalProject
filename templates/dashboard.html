@@ -18,6 +18,12 @@
         <p>Email: {{ user['email'] }}</p>
         <p>Light Threshold: {{ user['light_threshold'] }}</p>
         <p>Temperature Threshold: {{ user['temp_threshold'] }}</p>
+        {% if profile_picture %}
+                <img src="data:image/png;base64,{{ profile_picture }}" alt="Profile Picture" class="profile-preview">
+        {% else %}
+        <p>No profile picture could be found</p>
+        {% endif %}
+        <a href="/update_profile">Update Profile</a>
         <a href="/logout">Logout</a>
       </div>
 

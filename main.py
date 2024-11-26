@@ -10,6 +10,7 @@ import ssl
 import paho.mqtt.client as paho
 import sys
 import sqlite3
+import base64
 import requests
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -53,10 +54,10 @@ temp=0 # input comes from dht11
 threshold=24
 
 sender_email = "zlatintsvetkov@gmail.com"  
-email_password = "flvz vkjt bpwh ioom"
+email_password = "uimh xpeq ggwf muwm"
 
 MQTT_BROKER = "192.168.50.194"
-MQTT_BROKER = "192.168.0.124"
+# MQTT_BROKER = "192.168.0.124"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
 rfid_tag_detected = None
@@ -79,13 +80,63 @@ def home():
         print("user NOT in session so redirecting to login") # DEBUG
         return redirect(url_for("login"))
 
-    # Fetch user data for the dashboard
-    print("user is in session so RENDERING the dashboard") # DEBUG
+    user_id = session["user"]["id"]
+    conn = get_db_connection()
+    user = conn.execute("SELECT id, name, email, light_threshold, temp_threshold, profile_picture FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close
+    profile_picture = None
+    if user["profile_picture"]:
+        profile_picture = base64.b64encode(user["profile_picture"]).decode("utf-8")
 
-    userData = session["user"]    
-    print(f"User: ", userData) # DEBUG
-    return render_template("dashboard.html", user=userData)
+    return render_template("dashboard.html", user=user, profile_picture=profile_picture)
 
+@app.route("/update_profile", methods=["GET", "POST"])
+def update_profile():
+    if "user" not in session:
+        return redirect(url_for("login"))
+
+    user_id = session["user"]["id"]
+    conn = get_db_connection()
+
+    if request.method == "POST":
+        name = request.form["name"]
+        email = request.form["email"]
+        profile_picture = request.files["profile_picture"]
+
+        # If a new profile picture is uploaded, encode it
+        picture_data = None
+        if profile_picture and profile_picture.filename != "":
+            picture_data = profile_picture.read()
+
+        # Update the user details in the database
+        if picture_data:
+            conn.execute(
+                "UPDATE users SET name = ?, email = ?, profile_picture = ? WHERE id = ?",
+                (name, email, picture_data, user_id),
+            )
+        else:
+            conn.execute(
+                "UPDATE users SET name = ?, email = ? WHERE id = ?",
+                (name, email, user_id),
+            )
+        conn.commit()
+        conn.close()
+
+        # Update the session data
+        session["user"]["name"] = name
+        session["user"]["email"] = email
+
+        return redirect(url_for("home"))
+
+    # Retrieve the user's current details
+    user = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    conn.close()
+
+    profile_picture = None
+    if user["profile_picture"]:
+        profile_picture = base64.b64encode(user["profile_picture"]).decode("utf-8")
+
+    return render_template("update_profile.html", user=user, profile_picture=profile_picture)
 
 @app.route("/switch_led", methods=["GET"])
 def switch_led_state():

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login</title>
+    
+  </head>
+  <body>
+    <h1>Please scan your RFID card</h1>
+    <div class="container">
+      <h1>Login</h1>
+      <form id="loginForm">
+        
+      </form>
+      <p id="error-message" style="color: red; display: none"></p>
+    </div>
+    <script>
+      setInterval(() =>{
+        fetch('/login', {
+          method: 'POST',
+          headers:{
+            'Content-Type':'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if(data.message){
+            console.log(data.message);
+          }
+          else if(data.error){
+            console.error(data.error);
+          }
+          else if(data.welcome_message){
+            window.location.href = '/';
+            console.log("Loading dashboard")
+          }
+        })
+        .catch(error =>{
+          console.error('Error', error);
+        });
+      },
+        
+      5000);
+    </script>
+        </body>
+</html>

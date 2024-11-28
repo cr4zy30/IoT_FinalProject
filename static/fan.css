@@ -1,0 +1,10 @@
+#fan {
+    cursor: pointer;
+    opacity: 0.3; /* Initial opacity when motor is off */
+    transition: opacity 0.3s;
+  }
+
+.motor {
+    margin-top: 50px;
+    text-align: center;
+}

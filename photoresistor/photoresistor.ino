@@ -60,7 +60,7 @@ void loop() {
   snprintf(percentage_str, sizeof(percentage_str), "%d", light_percentage);
 
   client.publish("photoresistor/light_intensity", percentage_str);
-  client.publish("photoresistor/light", analog_value < 401 ? "True" : "False");
+  client.publish("photoresistor/light", String(analog_value).c_str());
 
   delay(5000);
 }

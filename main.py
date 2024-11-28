@@ -49,14 +49,14 @@ motor_status=False
 light_status=False
 light_intensity=0
 
-
 temp=0 # input comes from dht11
-threshold=24
+temp_threshold=24
+light_threshold=400
 
-sender_email = "zlatintsvetkov@gmail.com"  
-email_password = "uimh xpeq ggwf muwm"
+sender_email = "vorden2005@gmail.com"  
+email_password = ""
 
-MQTT_BROKER = "192.168.50.194"
+MQTT_BROKER = "172.20.10.2"
 # MQTT_BROKER = "192.168.0.124"
 MQTT_PORT = 1883
 RFID_TOPIC = "rfid/tag"
@@ -142,7 +142,7 @@ def update_profile():
 def switch_led_state():
     global led_state
     led_state = not led_state
-    # GPIO.output(LED, led_state)
+    GPIO.output(LED, led_state)
     data = {
         "led_state": led_state
     }
@@ -238,6 +238,8 @@ def login():
         send_email(sender_email, "User Login", content)
         print("session was created for user ")
         print(session["user"]["name"])
+        light_threshold=session["user"]["light_threshold"]
+        temp_threshold=session["user"]["temp_threshold"]
         return jsonify({"welcome_message":"Wecome home bratushka"}), 200
 
     print("User trying to login DOES NOT EXISTS in DB") #DEBUG
@@ -245,7 +247,7 @@ def login():
 
 @app.route("/logout", methods=["GET"])
 def logout():
-    global login_queue
+    global login_queue, light_threshold, temp_threshold
     if "user" not in session:
         print("trying to log out despite there not being a session") # DEBUG
         return redirect(url_for("login"))
@@ -262,6 +264,8 @@ def logout():
     session.pop("user", None) 
     print("user successfully logged out") # DEBUG
     login_queue = ""
+    light_threshold = 400
+    temp_threshold = 24
     return redirect(url_for("login"))
 
 
@@ -351,15 +355,17 @@ def check_for_reply(sent_time):
         print(f'Error: {e}')
 
 def monitor_temp():    
-    global temp, threshold, motor_status
+    global temp, temp_threshold, motor_status, light_threshold
 
     while(True):
-        if temp > threshold and not motor_status:
+        print("LIGHT_THRESHOLD", light_threshold)
+        print("TEMP_THRESHOLD", temp_threshold)
+        if temp > temp_threshold and not motor_status:
             
             print("Waiting 6 seconds...")
             time.sleep(6) # wait before checking the temperature again...
 
-            if temp <= threshold: 
+            if temp <= temp_threshold: 
                 break
 
             sent_time = datetime.now()
@@ -375,6 +381,7 @@ def monitor_temp():
 
                 """)
             send_email(session["user"]["email"],subject,content)
+
 
             time.sleep(20)
 
@@ -404,7 +411,7 @@ def run_motor():
     # # Stop the motor
     # GPIO.output(Motor1, GPIO.LOW)
 def check_light():
-    global light_status, led_state, light_intensity, login_queue
+    global light_status, led_state, light_intensity, login_queue, light_threshold
 
     def on_message(client, userdata, msg):
         global light_status, led_state, light_intensity, login_queue
@@ -414,7 +421,9 @@ def check_light():
             print(f"Light Intensity: {light_intensity}%")
 
         elif msg.topic == "photoresistor/light":
-            light_status = msg.payload.decode() == "True"
+
+            light_status = int(msg.payload.decode()) <= light_threshold
+
             print(f"Light Status: {light_status}")
             GPIO.output(LED, GPIO.HIGH if light_status else GPIO.LOW)
             led_state = light_status

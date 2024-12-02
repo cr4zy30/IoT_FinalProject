@@ -77,14 +77,19 @@ $(document).ready(function () {
     }
 
     // setTimeout(setTemperature, 1000);
+    
 
-    fetch("/get_led_state")
-      .then((response) => response.json())
-      .then((data) => {
-        led_state = data.led_state;
-        setImages();
-      })
-      .catch((e) => console.log("Error", e));
+    function getLedState() {
+      fetch("/get_led_state")
+        .then((response) => response.json())
+        .then((data) => {
+          led_state = data.led_state;
+          setImages();
+        })
+        .catch((e) => console.log("Error", e));
+    }
+
+    setInterval(getLedState, 1000);
 
     $("#switch").click(function () {
       fetch("/switch_led")
